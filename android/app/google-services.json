@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "452229452762",
+    "project_id": "tunetown-59caf",
+    "storage_bucket": "tunetown-59caf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:452229452762:android:fb402ad896eb910007e6e3",
+        "android_client_info": {
+          "package_name": "com.example.lovenest"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "452229452762-euovpj3e0hsqilevah401i473ejbuvn9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCd7429ecB_6RsQ71HMhKrZlyZO_YoBwmA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "452229452762-euovpj3e0hsqilevah401i473ejbuvn9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:452229452762:android:4f457bd93437c18007e6e3",
+        "android_client_info": {
+          "package_name": "com.liglius.tunetown"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "452229452762-euovpj3e0hsqilevah401i473ejbuvn9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCd7429ecB_6RsQ71HMhKrZlyZO_YoBwmA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "452229452762-euovpj3e0hsqilevah401i473ejbuvn9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
