@@ -26,6 +26,42 @@ CREATE TABLE IF NOT EXISTS garden_conflicts (
     resolution_data JSONB DEFAULT '{}'
 );
 
+-- Ensure couples table exists and has proper structure
+CREATE TABLE IF NOT EXISTS couples (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user1_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user2_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    UNIQUE(user1_id, user2_id)
+);
+
+-- Enable RLS on couples table
+ALTER TABLE couples ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policy for couples table - users can only see/update couples they're part of
+CREATE POLICY couples_select_policy ON couples
+    FOR SELECT
+    USING (user1_id = auth.uid() OR user2_id = auth.uid());
+
+-- RLS Policy for couples table - users can insert couples where they are user1_id or user2_id
+CREATE POLICY couples_insert_policy ON couples
+    FOR INSERT
+    WITH CHECK (user1_id = auth.uid() OR user2_id = auth.uid());
+
+-- RLS Policy for couples table - users can update couples they're part of
+CREATE POLICY couples_update_policy ON couples
+    FOR UPDATE
+    USING (user1_id = auth.uid() OR user2_id = auth.uid())
+    WITH CHECK (user1_id = auth.uid() OR user2_id = auth.uid());
+
+-- RLS Policy for couples table - users can delete couples they're part of
+CREATE POLICY couples_delete_policy ON couples
+    FOR DELETE
+    USING (user1_id = auth.uid() OR user2_id = auth.uid());
+
+-- Grant necessary permissions on couples table
+GRANT ALL ON couples TO authenticated;
+
 -- Enhance existing seeds table with sync tracking
 ALTER TABLE seeds ADD COLUMN IF NOT EXISTS last_updated_by UUID REFERENCES auth.users(id) ON DELETE SET NULL;
 ALTER TABLE seeds ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;

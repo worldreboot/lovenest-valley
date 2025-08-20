@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/inventory.dart';
+import '../../utils/seed_color_generator.dart';
 
 class InventorySlot extends StatelessWidget {
   final int slotIndex;
@@ -33,6 +34,21 @@ class InventorySlot extends StatelessWidget {
         ),
         child: Stack(
           children: [
+            // Selection indicator (behind everything)
+            if (isSelected)
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.6),
+                      blurRadius: 8,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+              ),
+            
             // Item icon or empty slot
             Center(
               child: item != null
@@ -65,21 +81,6 @@ class InventorySlot extends StatelessWidget {
                   ),
                 ),
               ),
-              
-            // Selection indicator
-            if (isSelected)
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.blue.withOpacity(0.6),
-                      blurRadius: 8,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-              ),
           ],
         ),
       ),
@@ -87,18 +88,76 @@ class InventorySlot extends StatelessWidget {
   }
 
   Widget _buildItemIcon() {
-    if (item?.iconPath != null) {
-      // Try to load custom icon from assets
+    // Special case: Daily Question Seed should look like the Owl UI seed
+    if (item != null && (item!.id == 'daily_question_seed' || item!.id.startsWith('daily_question_seed'))) {
+      // Use stored tint if present, otherwise derive from questionId embedded in the inventory id
+      final String rawId = item!.id;
+      String seedKey = rawId;
+      const String prefix = 'daily_question_seed_';
+      if (rawId.startsWith(prefix) && rawId.length > prefix.length) {
+        seedKey = rawId.substring(prefix.length);
+      }
+      final Color tint = item!.itemColor ?? SeedColorGenerator.generateSeedColor(seedKey);
       return Image.asset(
-        item!.iconPath!,
+        'assets/images/items/seeds.png',
         width: 40,
         height: 40,
         fit: BoxFit.contain,
+        color: tint,
+        colorBlendMode: BlendMode.modulate,
         errorBuilder: (context, error, stackTrace) {
+          debugPrint('[InventorySlot] Failed to load daily seed asset icon, using default: $error');
           return _buildDefaultIcon();
         },
       );
+    }
+
+    if (item?.iconPath != null) {
+      final path = item!.iconPath!;
+      final isNetwork = path.startsWith('http');
+      debugPrint('[InventorySlot] Loading custom icon (${isNetwork ? 'network' : 'asset'}): $path');
+
+      // Special handling for colored seeds (assets only)
+      if (!isNetwork && item!.name.toLowerCase().contains('seed') && item!.itemColor != null) {
+        return Image.asset(
+          path,
+          width: 40,
+          height: 40,
+          fit: BoxFit.contain,
+          color: item!.itemColor,
+          colorBlendMode: BlendMode.modulate,
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('[InventorySlot] Failed to load custom asset icon: $path, Error: $error');
+            return _buildDefaultIcon();
+          },
+        );
+      }
+
+      final imageWidget = isNetwork
+          ? Image.network(
+              path,
+              width: 40,
+              height: 40,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                debugPrint('[InventorySlot] Failed to load network icon: $path, Error: $error');
+                return _buildDefaultIcon();
+              },
+            )
+          : Image.asset(
+              path,
+              width: 40,
+              height: 40,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                debugPrint('[InventorySlot] Failed to load asset icon: $path, Error: $error');
+                return _buildDefaultIcon();
+              },
+            );
+
+      return imageWidget;
     } else {
+      debugPrint('[InventorySlot] No custom icon path, using default icon for: ${item?.name}');
       return _buildDefaultIcon();
     }
   }
@@ -116,6 +175,7 @@ class InventorySlot extends StatelessWidget {
         break;
       case 'water':
       case 'watering can':
+      case 'watering_can':
       case 'watering_can_full':
       case 'watering_can_empty':
         iconData = Icons.water_drop;

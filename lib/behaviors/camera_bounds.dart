@@ -1,7 +1,9 @@
 import 'package:flame/components.dart';
 import 'package:lovenest/game/farm_game.dart';
+import 'package:lovenest/game/tiled_farm_game.dart';
+import 'package:lovenest/game/base/game_with_grid.dart';
 
-class CameraBoundsBehavior extends Component with HasGameRef<FarmGame> {
+class CameraBoundsBehavior extends Component with HasGameRef<GameWithGrid> {
   @override
   void update(double dt) {
     final viewfinder = game.camera.viewfinder;

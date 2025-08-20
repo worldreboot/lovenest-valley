@@ -10,11 +10,13 @@ import '../../providers/garden_providers.dart';
 class PlantingSheet extends ConsumerStatefulWidget {
   final PlotPosition plotPosition;
   final VoidCallback? onPlant;
+  final bool showVoiceAndLinkOptions;
 
   const PlantingSheet({
     super.key,
     required this.plotPosition,
     this.onPlant,
+    this.showVoiceAndLinkOptions = true,
   });
 
   @override
@@ -46,98 +48,161 @@ class _PlantingSheetState extends ConsumerState<PlantingSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_validationError != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Text(
-                _validationError!,
-                style: const TextStyle(color: Colors.red),
-              ),
+    return Center(
+      child: Container(
+        width: 500,
+        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8E7C9),
+          border: Border.all(color: const Color(0xFF8B6F3A), width: 8),
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.brown.withOpacity(0.3),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
             ),
-          // Header
-          Row(
-            children: [
-              const Icon(Icons.eco, color: Colors.green, size: 24),
-              const SizedBox(width: 8),
-              const Text(
-                'Plant a Memory',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          
-          // Media type selector
-          const Text('Memory Type', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          _buildMediaTypeSelector(),
-          const SizedBox(height: 20),
-          
-          // Media content input
-          _buildMediaInput(),
-          const SizedBox(height: 20),
-          
-          // Secret hope input
-          const Text('Secret Hope', style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _secretHopeController,
-            decoration: const InputDecoration(
-              hintText: 'A secret wish that will be revealed when your memory blooms...',
-              border: OutlineInputBorder(),
-            ),
-            maxLines: 3,
-          ),
-          const SizedBox(height: 30),
-          
-          // Plant button
-          ElevatedButton(
-            onPressed: _isPlanting ? null : _handlePlant,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: _isPlanting
-                ? const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Scrollable content
+            SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 8),
+                  // Title and close button row
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: Color(0xFF8B6F3A), size: 28),
+                      tooltip: 'Close',
+                    ),
+                  ),
+                  Center(
+                    child: Text(
+                      'Plant a Memory',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.brown.shade700,
+                        letterSpacing: 2,
+                        shadows: [
+                          Shadow(
+                            color: Colors.brown.shade200,
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      SizedBox(width: 8),
-                      Text('Planting...'),
-                    ],
-                  )
-                : const Text('Plant Memory'),
-          ),
-        ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (_validationError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Text(
+                        _validationError!,
+                        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  // Main content container (soft inner background)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3E1B6),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.brown.shade200, width: 2),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Section: Memory Type
+                        Text(
+                          'Memory Type',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.brown.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildMediaTypeSelector(),
+                        const SizedBox(height: 20),
+                        // Section: Media Content
+                        _buildMediaInput(),
+                        const SizedBox(height: 20),
+                        // Divider
+                        Divider(color: Colors.brown.shade200, thickness: 1.2, height: 24),
+                        // Section: Secret Hope
+                        Text(
+                          'Secret Hope',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.brown.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _secretHopeController,
+                          decoration: InputDecoration(
+                            hintText: 'A secret wish that will be revealed when your memory blooms...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.brown.shade200, width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          maxLines: 3,
+                        ),
+                        const SizedBox(height: 30),
+                        // Plant button
+                        ElevatedButton(
+                          onPressed: _isPlanting ? null : _handlePlant,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                            textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                          child: _isPlanting
+                              ? const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      ),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text('Planting...'),
+                                  ],
+                                )
+                              : const Text('Plant Memory'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -147,11 +212,15 @@ class _PlantingSheetState extends ConsumerState<PlantingSheet> {
       children: [
         _buildMediaTypeChip(MediaType.photo, Icons.photo_camera, 'Photo'),
         const SizedBox(width: 8),
-        _buildMediaTypeChip(MediaType.voice, Icons.mic, 'Voice'),
-        const SizedBox(width: 8),
+        if (widget.showVoiceAndLinkOptions) ...[
+          _buildMediaTypeChip(MediaType.voice, Icons.mic, 'Voice'),
+          const SizedBox(width: 8),
+        ],
         _buildMediaTypeChip(MediaType.text, Icons.text_fields, 'Text'),
-        const SizedBox(width: 8),
-        _buildMediaTypeChip(MediaType.link, Icons.link, 'Link'),
+        if (widget.showVoiceAndLinkOptions) ...[
+          const SizedBox(width: 8),
+          _buildMediaTypeChip(MediaType.link, Icons.link, 'Link'),
+        ],
       ],
     );
   }

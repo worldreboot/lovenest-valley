@@ -1,5 +1,7 @@
 import 'package:lovenest/config/supabase_config.dart';
 import 'package:lovenest/models/memory_garden/question.dart';
+import 'package:lovenest/services/couple_daily_prompt_service.dart';
+import 'package:lovenest/services/garden_repository.dart';
 
 class QuestionService {
   /// Fetches a daily question the user hasn't seen yet, or null if all have been seen.
@@ -7,42 +9,31 @@ class QuestionService {
     final userId = SupabaseConfig.currentUserId;
     if (userId == null) return null;
 
-    // 1. Check if the user has already received a question today
-    final todayResponse = await SupabaseConfig.client
-        .from('user_questions')
-        .select('question_id, received_at')
-        .eq('user_id', userId)
-        .gte('received_at', DateTime.now().toUtc().toIso8601String().substring(0, 10));
+    // Resolve couple
+    final couple = await GardenRepository().getUserCouple();
+    if (couple == null) return null;
 
-    if ((todayResponse as List).isNotEmpty) {
-      // User has already received a question today
-      return null;
-    }
+    // Get or assign today's question for the couple via RPC
+    final rpc = CoupleDailyPromptService();
+    final result = await rpc.getOrAssignToday(couple.id);
 
-    // 2. Get IDs of questions the user has already seen
-    final seenIdsResponse = await SupabaseConfig.client
-        .from('user_questions')
-        .select('question_id')
-        .eq('user_id', userId);
-
-    final seenIds = (seenIdsResponse as List)
-        .map((row) => row['question_id'] as String)
-        .toSet();
-
-    // 3. Fetch a batch of questions (e.g., 10)
-    final questionsResponse = await SupabaseConfig.client
+    // Fetch created_at for the question to satisfy the model
+    final meta = await SupabaseConfig.client
         .from('questions')
-        .select()
-        .order('created_at')
-        .limit(10);
+        .select('created_at')
+        .eq('id', result['questionId']!)
+        .maybeSingle();
 
-    // 4. Filter in Dart
-    final unseen = (questionsResponse as List)
-        .where((q) => !seenIds.contains(q['id']))
-        .toList();
+    final createdAtStr = meta != null ? (meta['created_at'] as String?) : null;
+    final createdAt = createdAtStr != null
+        ? DateTime.parse(createdAtStr)
+        : DateTime.now();
 
-    if (unseen.isEmpty) return null;
-    return Question.fromJson(unseen.first);
+    return Question(
+      id: result['questionId']!,
+      text: result['text']!,
+      createdAt: createdAt,
+    );
   }
 
   /// Mark a question as received by the user (insert into user_questions)
@@ -59,13 +50,8 @@ class QuestionService {
   static Future<void> saveDailyQuestionAnswer(String questionId, String answer) async {
     final userId = SupabaseConfig.currentUserId;
     if (userId == null) return;
-    await SupabaseConfig.client.from('user_daily_question_answers').upsert({
-      'user_id': userId,
-      'question_id': questionId,
-      'answer': answer,
-      'is_planted': false,
-      'planted_seed_id': null,
-    }, onConflict: 'user_id,question_id');
+    // Submit via RPC; ignore returned status here to keep signature
+    await CoupleDailyPromptService().submitAnswer(questionId, answer);
   }
 
   /// Get the current user's unplanted daily question answer (if any)
@@ -92,5 +78,44 @@ class QuestionService {
           'planted_seed_id': seedId,
         })
         .eq('id', answerId);
+  }
+
+  /// Check if the partner has answered the given question
+  static Future<bool> hasPartnerAnswered(String questionId) async {
+    try {
+      final userId = SupabaseConfig.currentUserId;
+      if (userId == null) return false;
+      final couple = await GardenRepository().getUserCouple();
+      if (couple == null) return false;
+      final partnerId = couple.user1Id == userId ? couple.user2Id : couple.user1Id;
+
+      final res = await SupabaseConfig.client
+          .from('user_daily_question_answers')
+          .select('id')
+          .eq('question_id', questionId)
+          .eq('user_id', partnerId)
+          .limit(1);
+      // Supabase returns a List for selects
+      return res.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Check if the current user has answered the given question
+  static Future<bool> hasCurrentUserAnswered(String questionId) async {
+    try {
+      final userId = SupabaseConfig.currentUserId;
+      if (userId == null) return false;
+      final res = await SupabaseConfig.client
+          .from('user_daily_question_answers')
+          .select('id')
+          .eq('question_id', questionId)
+          .eq('user_id', userId)
+          .limit(1);
+      return res.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
   }
 } 

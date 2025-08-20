@@ -4,6 +4,7 @@ import 'package:path/path.dart' as path;
 import 'package:uuid/uuid.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import '../config/supabase_config.dart';
 import '../models/memory_garden/seed.dart';
@@ -391,6 +392,91 @@ class GardenRepository {
         return 'reply_text';
       case InteractionType.reaction:
         return 'reaction';
+    }
+  }
+
+  /// Send a couple invite (creates a pending invite in farm_invites)
+  Future<void> sendCoupleInvite({required String partnerUserId, required String partnerUsername}) async {
+    // Deprecated: farm_invites is replaced by couple_invites and RPCs. Kept for backward compat but no-op.
+    debugPrint('[GardenRepository] sendCoupleInvite is deprecated. Use CoupleLinkService.createInvite instead.');
+  }
+
+  /// Accept couple invite flow has moved to RPC redeem_couple_invite. Deprecated here.
+  Future<Couple> acceptCoupleInvite({required String inviterId, required String inviteId}) async {
+    throw UnimplementedError('Use CoupleLinkService.redeem(code) instead');
+  }
+  
+  /// Connect invitee to inviter's farm for real-time multiplayer interactions
+  /// Note: The inviter becomes User 1 in the couple relationship
+  // Kept for backward compatibility; may be referenced by older flows.
+  // ignore: unused_element
+  Future<void> _connectToPartnerFarm(String inviterId, String inviteeId) async {
+    try {
+      debugPrint('[GardenRepository] Connecting invitee to partner farm: inviterId=$inviterId, inviteeId=$inviteeId');
+      debugPrint('[GardenRepository] Inviter will be User 1 in the couple relationship');
+      
+      final client = SupabaseConfig.client;
+      
+      // 1. Get inviter's farm (this will be User 1's farm)
+      var inviterFarm = await client
+          .from('farms')
+          .select('id')
+          .eq('owner_id', inviterId)
+          .maybeSingle();
+      
+      if (inviterFarm == null) {
+        debugPrint('[GardenRepository] No farm found for inviter (User 1), creating one');
+        // Create a farm for the inviter if they don't have one
+        final newFarm = await client
+            .from('farms')
+            .insert({
+              'owner_id': inviterId,
+              'created_at': DateTime.now().toIso8601String(),
+            })
+            .select()
+            .single();
+        inviterFarm = newFarm;
+      }
+      
+      final inviterFarmId = inviterFarm['id'] as String;
+      debugPrint('[GardenRepository] Using inviter farm (User 1\'s farm): $inviterFarmId');
+      
+      // 2. Remove any existing farm for the invitee (they'll share User 1's farm)
+      final inviteeFarm = await client
+          .from('farms')
+          .select('id')
+          .eq('owner_id', inviteeId)
+          .maybeSingle();
+      
+      if (inviteeFarm != null) {
+        final inviteeFarmId = inviteeFarm['id'] as String;
+        debugPrint('[GardenRepository] Removing invitee farm: $inviteeFarmId');
+        
+        // Delete invitee's farm tiles first
+        await client
+            .from('farm_tiles')
+            .delete()
+            .eq('farm_id', inviteeFarmId);
+        
+        // Delete invitee's farm
+        await client
+            .from('farms')
+            .delete()
+            .eq('id', inviteeFarmId);
+      }
+      
+      // 3. Update inviter's farm to include invitee as partner_id
+      await client
+          .from('farms')
+          .update({'partner_id': inviteeId})
+          .eq('id', inviterFarmId);
+      
+      debugPrint('[GardenRepository] Successfully connected invitee to User 1\'s farm with partner_id set');
+      debugPrint('[GardenRepository] Both users will now load User 1\'s farm: $inviterFarmId');
+      
+    } catch (e) {
+      debugPrint('[GardenRepository] Error connecting to partner farm: $e');
+      // Don't throw here - the couple creation was successful, this is just for real-time features
     }
   }
 } 

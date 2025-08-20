@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:lovenest/screens/memory_garden_screen.dart';
-import 'package:lovenest/screens/game_screen.dart';
+// Removed unused imports for clean build
+import 'package:lovenest/main.dart' show FarmLoader; // Use FarmLoader to route into SimpleEnhanced game flow
+import 'package:lovenest/screens/dev_test_screen.dart';
+import 'package:lovenest/screens/map_test_screen.dart';
 import 'package:lovenest/services/auth_service.dart';
 import 'package:lovenest/config/supabase_config.dart';
+// Removed unused import
 
 class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
@@ -13,6 +16,7 @@ class MenuScreen extends StatefulWidget {
 
 class _MenuScreenState extends State<MenuScreen> {
   bool _isSignedIn = false;
+  bool _isSigningIn = false;
 
   @override
   void initState() {
@@ -24,6 +28,64 @@ class _MenuScreenState extends State<MenuScreen> {
     setState(() {
       _isSignedIn = SupabaseConfig.currentUser != null;
     });
+    
+    // If user is now signed in, navigate to the game
+    if (_isSignedIn) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const FarmLoader(),
+          ),
+        );
+      });
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    if (_isSigningIn) return; // Prevent multiple sign-in attempts
+    
+    setState(() {
+      _isSigningIn = true;
+    });
+
+    try {
+      debugPrint('[MenuScreen] 🔐 Starting Google sign-in...');
+      
+      // Clear any re-auth flags before signing in
+      SupabaseConfig.clearReauthFlag();
+      
+      await AuthService.signInWithGoogleNative();
+      
+      debugPrint('[MenuScreen] ✅ Google sign-in completed');
+      
+      // Add a small delay to ensure Supabase session is established
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Force refresh the authentication state
+      await SupabaseConfig.refreshAuthState();
+      
+      // Check authentication status
+      _checkAuth();
+      
+    } catch (e) {
+      debugPrint('[MenuScreen] ❌ Google sign-in failed: $e');
+      
+      // Show error to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sign-in failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSigningIn = false;
+        });
+      }
+    }
   }
 
   @override
@@ -35,8 +97,8 @@ class _MenuScreenState extends State<MenuScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF87CEEB), // Sky blue
-              Color(0xFF98FB98), // Pale green
+              Color(0xFFFF1493), // Deep pink
+              Color(0xFFFF69B4), // Hot pink
             ],
           ),
         ),
@@ -80,92 +142,57 @@ class _MenuScreenState extends State<MenuScreen> {
               ),
               const SizedBox(height: 60),
               
-              // Play Button
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const GameScreen(),
-                    ),
-                  );
-                },
+              // Test button (always visible for development)
+              ElevatedButton.icon(
+                icon: Icon(Icons.science),
+                label: Text('🧪 Sprite Generation Tests'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF228B22),
+                  backgroundColor: Colors.purple,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 40,
-                    vertical: 16,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  elevation: 8,
                 ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.eco, size: 28),
-                    SizedBox(width: 8),
-                    Text(
-                      'Enter Garden',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-              
-              // Settings Button (placeholder for future)
-              OutlinedButton(
                 onPressed: () {
-                  // TODO: Add settings screen
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Settings coming soon!'),
-                      duration: Duration(seconds: 2),
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const DevTestScreen(),
                     ),
                   );
                 },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white, width: 2),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 30,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.settings),
-                    SizedBox(width: 8),
-                    Text(
-                      'Settings',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 20),
               
+              // Map Test button (always visible for development)
+              ElevatedButton.icon(
+                icon: Icon(Icons.map),
+                label: Text('🗺️ Map Test Screen'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const MapTestScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+              
+              // Authentication buttons
               if (!_isSignedIn)
                 ElevatedButton.icon(
-                  icon: Icon(Icons.login),
-                  label: Text('Sign in with Google'),
-                  onPressed: () async {
-                    await AuthService.signInWithGoogleNative();
-                    _checkAuth();
-                  },
+                  icon: _isSigningIn 
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Icon(Icons.login),
+                  label: Text(_isSigningIn ? 'Signing in...' : 'Sign in with Google'),
+                  onPressed: _isSigningIn ? null : _handleGoogleSignIn,
                 ),
               if (_isSignedIn)
                 ElevatedButton.icon(

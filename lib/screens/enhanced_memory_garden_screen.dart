@@ -6,6 +6,7 @@ import '../models/memory_garden/seed.dart';
 import '../providers/enhanced_garden_providers.dart';
 import '../services/garden_sync_service.dart';
 import '../config/supabase_config.dart';
+import '../services/auth_service.dart';
 import 'memory_garden/planting_sheet.dart';
 import 'memory_garden/nurturing_sheet.dart';
 import 'memory_garden/bloom_viewer_sheet.dart';
@@ -624,7 +625,72 @@ class _EnhancedMemoryGardenScreenState extends ConsumerState<EnhancedMemoryGarde
   }
 
   void _showSettings() {
-    // TODO: Implement settings dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Settings'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Logout', style: TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.of(context).pop();
+                _showLogoutConfirmation();
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLogoutConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to log out? You will be returned to the sign-in screen.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await AuthService.signOut();
+                if (mounted) {
+                  Navigator.of(context).pop(); // Close confirmation dialog
+                  // Navigate back to auth flow
+                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.of(context).pop(); // Close confirmation dialog
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Logout failed: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _enterPlantingMode() {

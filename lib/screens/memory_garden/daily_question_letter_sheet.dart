@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../models/memory_garden/question.dart';
+import '../../components/ui/colored_seed_widget.dart';
+import '../../utils/seed_color_generator.dart';
 
 class DailyQuestionLetterSheet extends StatefulWidget {
   final Question question;
   final void Function(String answer)? onAnswered;
+  final void Function()? onCollectSeed;
 
   const DailyQuestionLetterSheet({
     Key? key,
     required this.question,
     this.onAnswered,
+    this.onCollectSeed,
   }) : super(key: key);
 
   @override
@@ -16,17 +20,13 @@ class DailyQuestionLetterSheet extends StatefulWidget {
 }
 
 class _DailyQuestionLetterSheetState extends State<DailyQuestionLetterSheet> {
-  final TextEditingController _answerController = TextEditingController();
-  bool _submitting = false;
-
-  @override
-  void dispose() {
-    _answerController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[DailyQuestionLetterSheet] 🎨 Building letter sheet');
+    debugPrint('[DailyQuestionLetterSheet] 📝 Question ID: ${widget.question.id}');
+    debugPrint('[DailyQuestionLetterSheet] 🔘 onCollectSeed callback: ${widget.onCollectSeed != null ? 'available' : 'null'}');
+    
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -98,81 +98,149 @@ class _DailyQuestionLetterSheetState extends State<DailyQuestionLetterSheet> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
-          // Date
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              _formatDate(widget.question.createdAt),
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.brown.shade400,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          // Answer input
-          TextField(
-            controller: _answerController,
-            enabled: !_submitting,
-            decoration: InputDecoration(
-              labelText: 'Your Answer',
-              labelStyle: TextStyle(color: Colors.brown.shade700),
-              border: OutlineInputBorder(
+
+                       // Seed collection section (always show, but with different content based on collection status)
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.brown.shade200),
+                border: Border.all(color: Colors.green.shade200),
               ),
-              filled: true,
-              fillColor: Colors.white.withOpacity(0.9),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.eco, color: Colors.green.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${SeedColorGenerator.getColorName(SeedColorGenerator.generateSeedColor(widget.question.id))} Daily Question Seed',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  // Inventory slot style container
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: Colors.brown.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.brown.shade300,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: widget.onCollectSeed != null
+                        ? Stack(
+                            children: [
+                              // Colored seed widget (only show if not collected)
+                              Center(
+                                child: ColoredSeedWidget(
+                                  questionId: widget.question.id,
+                                  size: 50,
+                                  showGlow: true,
+                                  tooltip: 'Daily Question Seed',
+                                ),
+                              ),
+                              // Quantity indicator
+                              Positioned(
+                                bottom: 4,
+                                right: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade600,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    '1',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : const Center(
+                            // Empty slot when already collected
+                            child: Icon(
+                              Icons.add,
+                              color: Colors.grey,
+                              size: 24,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.onCollectSeed != null
+                        ? 'The owl has prepared a special seed for you!'
+                        : 'You have already collected this seed.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: widget.onCollectSeed != null ? Colors.green.shade600 : Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.onCollectSeed != null
+                        ? 'Plant it and water it for 3 days to see it bloom.'
+                        : 'Check your inventory to plant and grow it.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: widget.onCollectSeed != null ? Colors.green.shade500 : Colors.grey.shade500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (widget.onCollectSeed != null) ...[
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        debugPrint('[DailyQuestionLetterSheet] 🖱️ Collect button pressed');
+                        if (widget.onCollectSeed != null) {
+                          debugPrint('[DailyQuestionLetterSheet] 🌱 Calling onCollectSeed callback');
+                          widget.onCollectSeed!();
+                        }
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('Collect Seed'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade600,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            minLines: 1,
-            maxLines: 3,
-          ),
-          const SizedBox(height: 16),
-          // Submit button
-          ElevatedButton.icon(
-            onPressed: _submitting || _answerController.text.trim().isEmpty
-                ? null
-                : () async {
-                    setState(() => _submitting = true);
-                    final answer = _answerController.text.trim();
-                    if (widget.onAnswered != null) {
-                      widget.onAnswered!(answer);
-                    }
-                    Navigator.of(context).pop(answer);
-                  },
-            icon: _submitting
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.send),
-            label: const Text('Submit Answer'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.brown.shade700,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
+
         ],
       ),
     );
   }
 
-  String _formatDate(DateTime date) {
-    // Example: March 14, 2024
-    return '${_monthName(date.month)} ${date.day}, ${date.year}';
-  }
 
-  String _monthName(int month) {
-    const months = [
-      '',
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    return months[month];
-  }
 } 

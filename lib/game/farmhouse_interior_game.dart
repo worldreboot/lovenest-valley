@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:lovenest/components/player.dart';
 import 'package:lovenest/utils/pathfinding.dart';
 import 'package:lovenest/game/base/game_with_grid.dart';
+import 'package:lovenest/components/world/bonfire.dart';
 
 class FarmhouseInteriorGame extends GameWithGrid with HasCollisionDetection, TapCallbacks {
   static const int roomWidth = 15;
@@ -12,12 +13,14 @@ class FarmhouseInteriorGame extends GameWithGrid with HasCollisionDetection, Tap
   static const double tileSize = 32.0;
 
   final VoidCallback? onExitHouse;
+  final Function(String)? onItemUsed; // Callback for when items are used
 
   late Player player;
   late PathfindingGrid pathfindingGrid;
   late List<List<InteriorTile?>> tileGrid;
+  late Bonfire fireplace;
 
-  FarmhouseInteriorGame({this.onExitHouse});
+  FarmhouseInteriorGame({this.onExitHouse, this.onItemUsed});
 
   @override
   Color backgroundColor() => const Color(0xFF000000); // Black background
@@ -33,6 +36,17 @@ class FarmhouseInteriorGame extends GameWithGrid with HasCollisionDetection, Tap
     // Start player near the exit
     player.position = Vector2((roomWidth ~/ 2) * tileSize + tileSize / 2, (roomHeight - 2) * tileSize + tileSize / 2);
     add(player);
+
+    // Add fireplace
+    fireplace = Bonfire(
+      position: Vector2(2 * tileSize, 2 * tileSize),
+      size: Vector2(3 * tileSize, 2 * tileSize),
+      maxWoodCapacity: 10,
+      woodBurnRate: 0.5,
+      maxFlameSize: 40,
+      maxIntensity: 1.0,
+    );
+    add(fireplace);
 
     // Use the same camera setup as the farm
     camera.follow(player);
@@ -98,6 +112,17 @@ class FarmhouseInteriorGame extends GameWithGrid with HasCollisionDetection, Tap
     final deltaY = (tileY - playerGridY).abs();
     return deltaX <= 1 && deltaY <= 1 && !(deltaX == 0 && deltaY == 0);
   }
+
+  /// Add wood to the fireplace
+  void addWoodToFireplace(int amount) {
+    fireplace.addWood(amount.toDouble());
+    onItemUsed?.call('wood');
+  }
+
+  /// Get fireplace status
+  bool get isFireplaceLit => fireplace.isLit;
+  double get fireplaceWoodLevel => fireplace.currentWood;
+  double get fireplaceIntensity => fireplace.intensity;
 }
 
 enum InteriorTileType { wall, floor, exit, furniture }
