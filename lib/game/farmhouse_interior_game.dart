@@ -2,10 +2,10 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
-import 'package:lovenest/components/player.dart';
-import 'package:lovenest/utils/pathfinding.dart';
-import 'package:lovenest/game/base/game_with_grid.dart';
-import 'package:lovenest/components/world/bonfire.dart';
+import 'package:lovenest_valley/components/player.dart';
+import 'package:lovenest_valley/utils/pathfinding.dart';
+import 'package:lovenest_valley/game/base/game_with_grid.dart';
+import 'package:lovenest_valley/components/world/bonfire.dart';
 
 class FarmhouseInteriorGame extends GameWithGrid with HasCollisionDetection, TapCallbacks {
   static const int roomWidth = 15;

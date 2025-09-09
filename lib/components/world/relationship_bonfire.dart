@@ -1,14 +1,14 @@
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
-import 'package:lovenest/components/world/bonfire.dart';
-import 'package:lovenest/models/relationship_goal.dart';
-import 'package:lovenest/services/relationship_goal_service.dart';
+import 'package:lovenest_valley/components/world/bonfire.dart';
+import 'package:lovenest_valley/models/relationship_goal.dart';
+import 'package:lovenest_valley/services/relationship_goal_service.dart';
 import 'package:flame/collisions.dart';
-import 'package:lovenest/services/garden_repository.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/services/garden_repository.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:lovenest/screens/relationship_goals_dialog.dart';
+import 'package:lovenest_valley/screens/relationship_goals_dialog.dart';
 
 /// A wrapper around the visual Bonfire that grows with relationship goals
 class RelationshipBonfire extends PositionComponent with TapCallbacks, HasGameRef {
@@ -21,6 +21,7 @@ class RelationshipBonfire extends PositionComponent with TapCallbacks, HasGameRe
   final double baseSize; // visual size for 0 goals
   final double sizePerCompletedGoal; // extra size per completed goal
   final double woodPerGoal; // how much wood to add per completed goal
+  final double baseLightIntensity; // minimal glow regardless of wood (0..1)
 
   RelationshipBonfire({
     required this.farmId,
@@ -29,12 +30,25 @@ class RelationshipBonfire extends PositionComponent with TapCallbacks, HasGameRe
     this.baseSize = 32,
     this.sizePerCompletedGoal = 4,
     this.woodPerGoal = 1.0,
+    this.baseLightIntensity = 0.45,
   }) {
     this.position = position;
     this.size = size;
     anchor = Anchor.topLeft;
-    // Ensure this captures taps before the game-level handler (same as Owl)
+    // Initial priority; will be sorted every frame based on baseline Y
     priority = 10;
+  }
+
+  /// Light intensity exposed for overlays (0..1), derived from bonfire intensity
+  double get lightIntensity => (_bonfire.intensity < baseLightIntensity)
+      ? baseLightIntensity
+      : _bonfire.intensity.clamp(0.0, 1.0);
+
+  /// World-space position of the light center (above the bonfire base)
+  Vector2 get lightWorldPosition {
+    // Center above the bonfire to approximate flame location
+    final center = position + Vector2(size.x * 0.5, size.y * 0.35);
+    return center;
   }
 
   @override
@@ -53,6 +67,14 @@ class RelationshipBonfire extends PositionComponent with TapCallbacks, HasGameRe
     add(_bonfire);
     await _syncWithGoals();
     await _subscribeRealtime();
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    // Dynamic Y-sort so player in front draws above and behind draws below
+    final baselineY = position.y + size.y;
+    priority = 1000 + baselineY.toInt();
   }
 
   Future<void> _subscribeRealtime() async {

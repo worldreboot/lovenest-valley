@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:lovenest/models/mood_weather_model.dart';
-import 'package:lovenest/services/mood_weather_service.dart';
+import 'package:lovenest_valley/models/mood_weather_model.dart';
+import 'package:lovenest_valley/services/mood_weather_service.dart';
 
 class DailyMoodPromptScreen extends StatefulWidget {
   final String coupleId;

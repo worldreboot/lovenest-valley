@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:lovenest/services/inventory_service.dart';
+import 'package:lovenest_valley/services/inventory_service.dart';
+import 'package:lovenest_valley/models/chest_storage.dart';
 
 /// Represents an item that can be stored in inventory
 class InventoryItem {
@@ -9,6 +10,7 @@ class InventoryItem {
   final String? iconPath;
   final int quantity;
   final Color? itemColor;
+  final ChestStorage? chestStorage; // New: stores chest contents when chest is in inventory
 
   const InventoryItem({
     required this.id,
@@ -16,6 +18,7 @@ class InventoryItem {
     this.iconPath,
     this.quantity = 1,
     this.itemColor,
+    this.chestStorage, // New: optional chest storage data
   });
 
   InventoryItem copyWith({
@@ -24,6 +27,7 @@ class InventoryItem {
     String? iconPath,
     int? quantity,
     Color? itemColor,
+    ChestStorage? chestStorage, // New: include in copyWith
   }) {
     return InventoryItem(
       id: id ?? this.id,
@@ -31,6 +35,7 @@ class InventoryItem {
       iconPath: iconPath ?? this.iconPath,
       quantity: quantity ?? this.quantity,
       itemColor: itemColor ?? this.itemColor,
+      chestStorage: chestStorage ?? this.chestStorage, // New: preserve chest storage
     );
   }
 }

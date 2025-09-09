@@ -1,4 +1,4 @@
-import 'package:lovenest/models/shop_item.dart';
+import 'package:lovenest_valley/models/shop_item.dart';
 
 class ShopService {
   static final List<ShopItem> _allItems = [

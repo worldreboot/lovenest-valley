@@ -1,17 +1,17 @@
 import 'package:flame/components.dart';
 import 'package:flame/sprite.dart';
 import 'package:flutter/material.dart';
-import 'package:lovenest/services/farm_tile_service.dart';
+import 'package:lovenest_valley/services/farm_tile_service.dart';
 import 'package:flutter/painting.dart';
 import 'package:http/http.dart' as http;
 import 'dart:ui' as ui;
 import 'dart:math' as math;
-import 'package:lovenest/screens/seed_details_dialog.dart';
+import 'package:lovenest_valley/screens/seed_details_dialog.dart';
 import 'package:flame/events.dart';
 import 'package:flame/flame.dart';
-import 'package:lovenest/config/supabase_config.dart';
-import 'package:lovenest/services/question_service.dart';
-import 'package:lovenest/services/seed_info_service.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/services/question_service.dart';
+import 'package:lovenest_valley/services/seed_info_service.dart';
 
 // A simple in-memory cache for generated sprites to avoid re-downloading.
 final _generatedSpriteCache = <String, ui.Image>{};

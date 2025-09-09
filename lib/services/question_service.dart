@@ -1,7 +1,7 @@
-import 'package:lovenest/config/supabase_config.dart';
-import 'package:lovenest/models/memory_garden/question.dart';
-import 'package:lovenest/services/couple_daily_prompt_service.dart';
-import 'package:lovenest/services/garden_repository.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/models/memory_garden/question.dart';
+import 'package:lovenest_valley/services/couple_daily_prompt_service.dart';
+import 'package:lovenest_valley/services/garden_repository.dart';
 
 class QuestionService {
   /// Fetches a daily question the user hasn't seen yet, or null if all have been seen.

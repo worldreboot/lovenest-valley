@@ -1,7 +1,7 @@
 enum Terrain {
   NULL(0),
   DIRT(1),
-  POND(2), // a.k.a. Water/Beach
+  POND(2), // a.k.a. Water/Beach/ShallowWater/DeepWater/AbyssWater
   TILLED(3),
   GRASS(4),
   HIGH_GROUND(5),

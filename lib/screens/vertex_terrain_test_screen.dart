@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
-import 'package:lovenest/game/vertex_terrain_game.dart';
-import 'package:lovenest/models/inventory.dart';
+import 'package:lovenest_valley/game/vertex_terrain_game.dart';
+import 'package:lovenest_valley/models/inventory.dart';
 
 class VertexTerrainTestScreen extends StatefulWidget {
   const VertexTerrainTestScreen({super.key});

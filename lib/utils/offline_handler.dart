@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 
 class OfflineHandler {
   /// Wraps a Supabase operation with offline mode handling

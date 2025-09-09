@@ -8,7 +8,7 @@ extension BackendRestoreExtension on SimpleEnhancedFarmGame {
       final vertexGridState = await farmTileService.loadVertexGridState(farmId);
       if (vertexGridState != null) {
         debugPrint('[SimpleEnhancedFarmGame] ✅ Found vertex grid state, using new system');
-        _updateEntireMapVisual();
+        _updateEntireMapVisual(); // Will be gated by _autoApplyVertexOverrides
         return;
       }
       debugPrint('[SimpleEnhancedFarmGame] ℹ️ No vertex grid state found, using legacy farm_tiles system');
@@ -29,7 +29,7 @@ extension BackendRestoreExtension on SimpleEnhancedFarmGame {
       }
       if (anyUpdated) {
         await _persistVertexGridState();
-        _updateEntireMapVisual();
+        _updateEntireMapVisual(); // Will be gated by _autoApplyVertexOverrides
       }
     } catch (e) {
       debugPrint('[SimpleEnhancedFarmGame] ❌ Error loading tilled tiles: $e');
@@ -43,7 +43,7 @@ extension BackendRestoreExtension on SimpleEnhancedFarmGame {
       final vertexGridState = await farmTileService.loadVertexGridState(farmId);
       if (vertexGridState != null) {
         debugPrint('[SimpleEnhancedFarmGame] ✅ Found vertex grid state, using new system');
-        _updateEntireMapVisual();
+        _updateEntireMapVisual(); // Will be gated by _autoApplyVertexOverrides
         return;
       }
       debugPrint('[SimpleEnhancedFarmGame] ℹ️ No vertex grid state found, using legacy farm_tiles system');
@@ -64,7 +64,7 @@ extension BackendRestoreExtension on SimpleEnhancedFarmGame {
       }
       if (anyUpdated) {
         await _persistVertexGridState();
-        _updateEntireMapVisual();
+        _updateEntireMapVisual(); // Will be gated by _autoApplyVertexOverrides
       }
     } catch (e) {
       debugPrint('[SimpleEnhancedFarmGame] ❌ Error loading watered tiles: $e');
@@ -111,6 +111,9 @@ extension BackendRestoreExtension on SimpleEnhancedFarmGame {
           },
         );
         await world.add(gift);
+        // Mark as obstacle
+        giftPositions.add(GridPos(x, y));
+        _pathfindingGrid.setObstacle(x, y, true);
       }
     } catch (e) {
       debugPrint('[SimpleEnhancedFarmGame] ❌ Error loading placed gifts: $e');

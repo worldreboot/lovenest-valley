@@ -1,14 +1,14 @@
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lovenest/components/player.dart';
+import 'package:lovenest_valley/components/player.dart';
 
 class SmoothPlayer extends Player {
   // Remote-only lightweight interpolation state
   Vector2? _remoteTargetPosition;
   Vector2? _remoteInterpolationStart;
   double _remoteInterpolationTime = 0.0;
-  static const double _remoteInterpolationDuration = 0.12; // seconds
+  double _remoteInterpolationDuration = 0.12; // seconds (computed per-leg by distance/speed)
 
   // Animation smoothing (network-driven)
   PlayerDirection _targetDirection = PlayerDirection.idle;
@@ -70,7 +70,16 @@ class SmoothPlayer extends Player {
   // Set a new network target position (world coordinates)
   void moveToPosition(Vector2 targetPosition, {Vector2? velocity, double? tileSize}) {
     _remoteTargetPosition = targetPosition;
-    _remoteInterpolationStart = null; // reset for fresh interpolation
+    // Determine start immediately to compute a deterministic duration by distance/speed
+    final startPos = position.clone();
+    _remoteInterpolationStart = startPos;
+    _remoteInterpolationTime = 0.0;
+    final distance = startPos.distanceTo(targetPosition);
+    // Use Player.speed (pixels/sec); clamp to a small minimum to avoid zero-duration teleport
+    final pixelsPerSecond = speed; // inherited from Player
+    final minDuration = 0.05; // 50ms minimum to avoid visual snap
+    final computed = distance / (pixelsPerSecond > 0 ? pixelsPerSecond : 100.0);
+    _remoteInterpolationDuration = computed.clamp(minDuration, 2.5); // cap very long walks per leg
   }
 
   // Update direction smoothly from network state

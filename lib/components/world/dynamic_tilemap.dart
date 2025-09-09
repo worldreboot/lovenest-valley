@@ -2,7 +2,7 @@ import 'package:flame/components.dart';
 import 'package:flame/sprite.dart';
 import 'package:flame_tiled/flame_tiled.dart';
 import 'package:flutter/foundation.dart';
-import 'package:lovenest/game/base/game_with_grid.dart';
+import 'package:lovenest_valley/game/base/game_with_grid.dart';
 
 /// A component that renders a Tiled map layer using a single SpriteBatchComponent
 /// for optimal performance. This allows for dynamic updates to individual tiles

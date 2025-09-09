@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:lovenest/services/revenuecat_service.dart';
+import 'package:lovenest_valley/services/revenuecat_service.dart';
 
 class PaywallScreen extends StatefulWidget {
   final VoidCallback? onEntitled;

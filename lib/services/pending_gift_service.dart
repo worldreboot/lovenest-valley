@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:lovenest/config/supabase_config.dart';
-import 'package:lovenest/models/inventory.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/models/inventory.dart';
 
 class PendingGiftService {
   static const String _prefsKey = 'pending_gift_deliveries_v1';

@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 
 class SeedInfoService {
   static final _client = SupabaseConfig.client;

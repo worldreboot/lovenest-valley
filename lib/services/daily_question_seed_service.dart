@@ -1,10 +1,10 @@
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert'; // Added for json.decode
 import 'package:http/http.dart' as http; // Added for http.MultipartRequest
-import 'package:lovenest/services/couple_daily_prompt_service.dart';
-import 'package:lovenest/services/question_service.dart';
-import 'package:lovenest/services/garden_repository.dart';
+import 'package:lovenest_valley/services/couple_daily_prompt_service.dart';
+import 'package:lovenest_valley/services/question_service.dart';
+import 'package:lovenest_valley/services/garden_repository.dart';
 
 class DailyQuestionSeedService {
   /// Plant a daily question seed with the user's answer

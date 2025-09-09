@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:lovenest/config/supabase_config.dart';
-import 'package:lovenest/screens/avatar_creation_screen.dart';
-import 'package:lovenest/screens/game_screen.dart';
-import 'package:lovenest/screens/menu_screen.dart';
-import 'package:lovenest/screens/paywall_screen.dart';
-import 'package:lovenest/services/revenuecat_service.dart';
-import 'package:lovenest/config/feature_flags.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/screens/avatar_creation_screen.dart';
+import 'package:lovenest_valley/screens/game_screen.dart';
+import 'package:lovenest_valley/screens/menu_screen.dart';
+import 'package:lovenest_valley/screens/paywall_screen.dart';
+import 'package:lovenest_valley/services/revenuecat_service.dart';
+import 'package:lovenest_valley/config/feature_flags.dart';
 
 class SplashScreen extends StatefulWidget {
   final String farmId;

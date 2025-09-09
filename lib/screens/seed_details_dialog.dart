@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lovenest/services/daily_question_seed_service.dart';
+import 'package:lovenest_valley/services/daily_question_seed_service.dart';
 
 class SeedDetailsDialog extends StatelessWidget {
   final int plotX;

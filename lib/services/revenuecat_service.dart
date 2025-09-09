@@ -5,8 +5,9 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 
 class RevenueCatService {
   static bool _initialized = false;
+  // TODO: Replace with your actual RevenueCat API key from the dashboard
   static const String _publicApiKey = 'REVENUECAT_PUBLIC_API_KEY_PLACEHOLDER';
-  static const String _entitlementId = 'premium'; // placeholder
+  static const String _entitlementId = 'premium'; // Your entitlement ID from RevenueCat dashboard
 
   static Future<void> initialize({String? appUserId}) async {
     if (_initialized) return;

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 // Removed unused imports for clean build
-import 'package:lovenest/main.dart' show FarmLoader; // Use FarmLoader to route into SimpleEnhanced game flow
-import 'package:lovenest/screens/dev_test_screen.dart';
-import 'package:lovenest/screens/map_test_screen.dart';
-import 'package:lovenest/services/auth_service.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/main.dart' show FarmLoader; // Use FarmLoader to route into SimpleEnhanced game flow
+import 'package:lovenest_valley/screens/dev_test_screen.dart';
+
+import 'package:lovenest_valley/services/auth_service.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 // Removed unused import
 
 class MenuScreen extends StatefulWidget {
@@ -43,33 +44,80 @@ class _MenuScreenState extends State<MenuScreen> {
 
   Future<void> _handleGoogleSignIn() async {
     if (_isSigningIn) return; // Prevent multiple sign-in attempts
-    
+
     setState(() {
       _isSigningIn = true;
     });
 
     try {
       debugPrint('[MenuScreen] 🔐 Starting Google sign-in...');
-      
+
       // Clear any re-auth flags before signing in
       SupabaseConfig.clearReauthFlag();
-      
+
       await AuthService.signInWithGoogleNative();
-      
+
       debugPrint('[MenuScreen] ✅ Google sign-in completed');
-      
+
       // Add a small delay to ensure Supabase session is established
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       // Force refresh the authentication state
       await SupabaseConfig.refreshAuthState();
-      
+
       // Check authentication status
       _checkAuth();
-      
+
     } catch (e) {
       debugPrint('[MenuScreen] ❌ Google sign-in failed: $e');
-      
+
+      // Show error to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sign-in failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSigningIn = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleAppleSignIn() async {
+    if (_isSigningIn) return; // Prevent multiple sign-in attempts
+
+    setState(() {
+      _isSigningIn = true;
+    });
+
+    try {
+      debugPrint('[MenuScreen] 🍎 Starting Apple sign-in...');
+
+      // Clear any re-auth flags before signing in
+      SupabaseConfig.clearReauthFlag();
+
+      await AuthService.signInWithApple();
+
+      debugPrint('[MenuScreen] ✅ Apple sign-in completed');
+
+      // Add a small delay to ensure Supabase session is established
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Force refresh the authentication state
+      await SupabaseConfig.refreshAuthState();
+
+      // Check authentication status
+      _checkAuth();
+
+    } catch (e) {
+      debugPrint('[MenuScreen] ❌ Apple sign-in failed: $e');
+
       // Show error to user
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -160,40 +208,48 @@ class _MenuScreenState extends State<MenuScreen> {
               ),
               const SizedBox(height: 20),
               
-              // Map Test button (always visible for development)
-              ElevatedButton.icon(
-                icon: Icon(Icons.map),
-                label: Text('🗺️ Map Test Screen'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const MapTestScreen(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
+
               
               // Authentication buttons
-              if (!_isSignedIn)
-                ElevatedButton.icon(
-                  icon: _isSigningIn 
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Icon(Icons.login),
-                  label: Text(_isSigningIn ? 'Signing in...' : 'Sign in with Google'),
-                  onPressed: _isSigningIn ? null : _handleGoogleSignIn,
-                ),
+              if (!_isSignedIn) ...[
+                // iOS: Apple Sign-In only
+                if (Platform.isIOS)
+                  ElevatedButton.icon(
+                    icon: _isSigningIn
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Icon(Icons.apple),
+                    label: Text(_isSigningIn ? 'Signing in...' : 'Sign in with Apple'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: _isSigningIn ? null : _handleAppleSignIn,
+                  ),
+
+                // Android: Google Sign-In only
+                if (Platform.isAndroid)
+                  ElevatedButton.icon(
+                    icon: _isSigningIn
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Icon(Icons.login),
+                    label: Text(_isSigningIn ? 'Signing in...' : 'Sign in with Google'),
+                    onPressed: _isSigningIn ? null : _handleGoogleSignIn,
+                  ),
+              ],
               if (_isSignedIn)
                 ElevatedButton.icon(
                   icon: Icon(Icons.logout),

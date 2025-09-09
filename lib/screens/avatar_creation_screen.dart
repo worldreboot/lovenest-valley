@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:lovenest/services/avatar_generation_service.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/services/avatar_generation_service.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:lovenest/screens/game_screen.dart';
+import 'package:lovenest_valley/screens/game_screen.dart';
 import 'dart:io';
 
 class AvatarCreationScreen extends StatefulWidget {

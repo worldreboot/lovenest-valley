@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
-import 'package:lovenest/game/simple_enhanced_farm_game.dart';
-import 'package:lovenest/models/inventory.dart';
-import 'package:lovenest/components/ui/inventory_bar.dart';
-import 'package:lovenest/services/question_service.dart';
-import 'package:lovenest/models/memory_garden/question.dart';
-import 'package:lovenest/screens/memory_garden/daily_question_letter_sheet.dart';
-import 'package:lovenest/services/daily_question_seed_collection_service.dart';
-import 'package:lovenest/utils/seed_color_generator.dart';
-import 'package:lovenest/components/ui/daily_question_planting_dialog.dart';
-import 'package:lovenest/services/daily_question_seed_service.dart';
-import 'package:lovenest/services/seed_service.dart';
-import 'package:lovenest/services/farm_service.dart';
-import 'package:lovenest/config/supabase_config.dart';
-import 'package:lovenest/screens/shop_screen.dart';
-import 'package:lovenest/services/pending_gift_service.dart';
-import 'package:lovenest/screens/widgets/gifts_inbox_dialog.dart';
-import 'package:lovenest/components/ui/chest_storage_ui.dart';
-import 'package:lovenest/models/chest_storage.dart';
+import 'package:lovenest_valley/game/simple_enhanced_farm_game.dart';
+import 'package:lovenest_valley/models/inventory.dart';
+import 'package:lovenest_valley/services/starter_items_service.dart';
+import 'package:lovenest_valley/components/ui/inventory_bar.dart';
+import 'package:lovenest_valley/services/question_service.dart';
+import 'package:lovenest_valley/models/memory_garden/question.dart';
+import 'package:lovenest_valley/screens/memory_garden/daily_question_letter_sheet.dart';
+import 'package:lovenest_valley/services/daily_question_seed_collection_service.dart';
+import 'package:lovenest_valley/utils/seed_color_generator.dart';
+import 'package:lovenest_valley/components/ui/daily_question_planting_dialog.dart';
+import 'package:lovenest_valley/services/daily_question_seed_service.dart';
+import 'package:lovenest_valley/services/seed_service.dart';
+import 'package:lovenest_valley/services/farm_service.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/screens/shop_screen.dart';
+import 'package:lovenest_valley/services/pending_gift_service.dart';
+import 'package:lovenest_valley/screens/widgets/gifts_inbox_dialog.dart';
+import 'package:lovenest_valley/components/ui/chest_storage_ui.dart';
+import 'package:lovenest_valley/models/chest_storage.dart';
 
 class TiledTestScreen extends StatefulWidget {
   const TiledTestScreen({super.key});
@@ -70,14 +71,22 @@ class _TiledTestScreenState extends State<TiledTestScreen> {
   Future<void> _initializeInventory() async {
     debugPrint('[TiledTestScreen] 🔄 Starting inventory initialization');
     
+    // Check if user has already received starter items
+    final hasReceivedStarterItems = await StarterItemsService.hasReceivedStarterItems();
+    
+    if (hasReceivedStarterItems) {
+      debugPrint('[TiledTestScreen] ✅ User has already received starter items, skipping');
+      return;
+    }
+    
     // Initialize inventory from backend
     await inventoryManager.initialize();
     
     debugPrint('[TiledTestScreen] 📊 Inventory after backend load: ${inventoryManager.slots.map((item) => item?.name ?? 'null').toList()}');
     
-    // Add default items to the inventory if it's empty
+    // Add default items to the inventory if it's empty (only for first-time users)
     if (inventoryManager.slots.every((item) => item == null)) {
-      debugPrint('[TiledTestScreen] ➕ Adding default items to empty inventory');
+      debugPrint('[TiledTestScreen] ➕ Adding default items to empty inventory (first time)');
       await inventoryManager.addItem(const InventoryItem(
         id: 'hoe',
         name: 'Hoe',
@@ -88,9 +97,15 @@ class _TiledTestScreenState extends State<TiledTestScreen> {
         name: 'Watering Can',
         iconPath: 'assets/images/items/watering_can.png',
       ));
-      debugPrint('[TiledTestScreen] ✅ Default items added');
+      
+      // Mark that user has received starter items
+      await StarterItemsService.markStarterItemsReceived();
+      debugPrint('[TiledTestScreen] ✅ Default items added and marked as received');
     } else {
-      debugPrint('[TiledTestScreen] 📦 Inventory not empty, skipping default items');
+      debugPrint('[TiledTestScreen] 📦 Inventory not empty, marking as received and skipping default items');
+      // User has items but hasn't been marked as receiving starter items
+      // This could happen if they had items before the tracking was implemented
+      await StarterItemsService.markStarterItemsReceived();
     }
   }
 

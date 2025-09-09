@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class AuthService {
   static Future<void> signInWithGoogle() async {
@@ -77,6 +78,50 @@ class AuthService {
     }
   }
 
+  static Future<void> signInWithApple() async {
+    try {
+      debugPrint('[AuthService] 🍎 Starting Apple sign-in process...');
+
+      // Request Apple ID credentials
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      debugPrint('[AuthService] ✅ Apple credentials obtained');
+
+      // Extract the identity token
+      final identityToken = appleCredential.identityToken;
+      if (identityToken == null) {
+        throw Exception('No identity token found from Apple sign-in');
+      }
+
+      debugPrint('[AuthService] 🔑 Got identity token from Apple');
+
+      // Sign in to Supabase with the Apple identity token
+      await Supabase.instance.client.auth.signInWithIdToken(
+        provider: OAuthProvider.apple,
+        idToken: identityToken,
+      );
+
+      debugPrint('[AuthService] ✅ Successfully signed in to Supabase with Apple');
+
+      // Verify the session was established
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      if (currentUser != null) {
+        debugPrint('[AuthService] ✅ Session verified - User ID: ${currentUser.id}');
+      } else {
+        debugPrint('[AuthService] ⚠️ Session verification failed - no current user');
+      }
+
+    } catch (e) {
+      debugPrint('[AuthService] ❌ Apple sign-in failed: $e');
+      rethrow; // Re-throw to let the calling code handle the error
+    }
+  }
+
   static Future<void> signOut() async {
     try {
       debugPrint('[AuthService] 🚪 Signing out from Supabase...');
@@ -91,6 +136,9 @@ class AuthService {
       } catch (e) {
         debugPrint('[AuthService] ⚠️ Error signing out from Google: $e');
       }
+
+      // Note: Apple Sign-In doesn't require explicit sign out as it doesn't maintain a persistent session
+      // The Supabase session cleanup is sufficient
     } catch (e) {
       debugPrint('[AuthService] ❌ Error signing out: $e');
       rethrow;

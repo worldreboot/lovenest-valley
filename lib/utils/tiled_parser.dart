@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:xml/xml.dart';
@@ -37,6 +34,24 @@ class TilesetParser {
   String? getImageSource() {
     final image = _document.findAllElements('image').firstOrNull;
     return image?.getAttribute('source');
+  }
+
+  /// For image-collection tilesets (columns == 0), returns a map of tileId -> image tile metadata
+  Map<int, TilesetImageTile> getImageCollectionTiles() {
+    final result = <int, TilesetImageTile>{};
+    for (final tile in _document.findAllElements('tile')) {
+      final tileIdStr = tile.getAttribute('id');
+      if (tileIdStr == null) continue;
+      final tileId = int.tryParse(tileIdStr);
+      if (tileId == null) continue;
+      final imageEl = tile.findElements('image').firstOrNull;
+      if (imageEl == null) continue;
+      final src = imageEl.getAttribute('source') ?? '';
+      final w = int.tryParse(imageEl.getAttribute('width') ?? '') ?? 0;
+      final h = int.tryParse(imageEl.getAttribute('height') ?? '') ?? 0;
+      result[tileId] = TilesetImageTile(source: src, width: w, height: h);
+    }
+    return result;
   }
 
   /// Gets all wang tiles for auto-tiling
@@ -129,6 +144,29 @@ class TilesetParser {
     }
     
     return properties;
+  }
+  
+  /// Gets tile animations. Key is 0-based tile ID within this tileset.
+  /// Each value is a list of frames with tileId (0-based) and durationMs.
+  Map<int, List<TilesetAnimationFrame>> getTileAnimations() {
+    final animations = <int, List<TilesetAnimationFrame>>{};
+    for (final tile in _document.findAllElements('tile')) {
+      final tileIdAttr = tile.getAttribute('id');
+      if (tileIdAttr == null) continue;
+      final baseTileId = int.parse(tileIdAttr);
+      final animationEl = tile.findElements('animation').firstOrNull;
+      if (animationEl == null) continue;
+      final frames = <TilesetAnimationFrame>[];
+      for (final frameEl in animationEl.findAllElements('frame')) {
+        final frameTileId = int.parse(frameEl.getAttribute('tileid') ?? '0');
+        final durationMs = int.parse(frameEl.getAttribute('duration') ?? '0');
+        frames.add(TilesetAnimationFrame(tileId: frameTileId, durationMs: durationMs));
+      }
+      if (frames.isNotEmpty) {
+        animations[baseTileId] = frames;
+      }
+    }
+    return animations;
   }
 }
 
@@ -242,7 +280,12 @@ class MapParser {
       for (int x = 0; x < width; x++) {
         final index = y * width + x;
         if (index < numbers.length) {
-          row.add(numbers[index]);
+          final tileId = numbers[index];
+          // Log when tile ID 55 is found
+          if (tileId == 55) {
+            print('[MapParser] 🔍 Found tile ID 55 at position ($x, $y)');
+          }
+          row.add(tileId);
         } else {
           row.add(0); // Default to empty tile
         }
@@ -340,6 +383,20 @@ class MapObject {
     this.width,
     this.height,
   });
+}
+
+class TilesetAnimationFrame {
+  final int tileId;
+  final int durationMs;
+  TilesetAnimationFrame({required this.tileId, required this.durationMs});
+}
+
+/// Metadata for a per-tile image in an image-collection tileset
+class TilesetImageTile {
+  final String source;
+  final int width;
+  final int height;
+  const TilesetImageTile({required this.source, required this.width, required this.height});
 }
 
 /// Auto-tiling utility class that uses a correct Wang tile algorithm.

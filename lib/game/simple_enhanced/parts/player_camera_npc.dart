@@ -56,7 +56,19 @@ extension PlayerCameraNpcExtension on SimpleEnhancedFarmGame {
       },
     );
     world.add(owlNpc);
-    owlPositions.add(GridPos(owlX, owlY));
+    // Block all tiles covered by the owl footprint (top-left anchored)
+    final owlCoverW = (owlSize.x / SimpleEnhancedFarmGame.tileSize).ceil();
+    final owlCoverH = (owlSize.y / SimpleEnhancedFarmGame.tileSize).ceil();
+    for (int dy = 0; dy < owlCoverH; dy++) {
+      for (int dx = 0; dx < owlCoverW; dx++) {
+        final gx = owlX + dx;
+        final gy = owlY + dy;
+        if (gx >= 0 && gx < SimpleEnhancedFarmGame.mapWidth && gy >= 0 && gy < SimpleEnhancedFarmGame.mapHeight) {
+          owlPositions.add(GridPos(gx, gy));
+          _pathfindingGrid.setObstacle(gx, gy, true);
+        }
+      }
+    }
     final dailyQuestion = await QuestionService.fetchDailyQuestion();
     if (dailyQuestion != null) {
       final hasCollected = await DailyQuestionSeedCollectionService.hasUserCollectedSeed(dailyQuestion.id);
@@ -89,8 +101,8 @@ extension PlayerCameraNpcExtension on SimpleEnhancedFarmGame {
       // Ensure we have a SmoothPlayer for this user
       if (!otherPlayers.containsKey(destination.userId)) {
         final other = SmoothPlayer()
-          ..opacity = 0.75
-          ..priority = 5;
+          ..opacity = 1.0
+          ..priority = 3000;
         // Start at the destination tile center
         other.position = Vector2(
           destination.targetGridX * SimpleEnhancedFarmGame.tileSize + SimpleEnhancedFarmGame.tileSize / 2,
@@ -130,6 +142,8 @@ extension PlayerCameraNpcExtension on SimpleEnhancedFarmGame {
       }
     });
 
+    // World-position streaming removed: deterministic movement uses destinations only
+
     // Broadcast our current target grid at a low interval and forward to AoE debounce handler
     // Reuse player's onPositionChanged callback to publish grid destinations
     // De-dupe by grid and throttle to ~10 Hz
@@ -160,6 +174,8 @@ extension PlayerCameraNpcExtension on SimpleEnhancedFarmGame {
       }
       // Ensure local movement debounce updates AoE highlights
       _handlePlayerPositionChange(pos);
+
+      // No continuous world-position broadcast (deterministic path)
     };
   }
 

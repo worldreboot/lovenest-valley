@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:lovenest/models/inventory.dart';
-import 'package:lovenest/services/pending_gift_service.dart';
+import 'package:lovenest_valley/models/inventory.dart';
+import 'package:lovenest_valley/services/pending_gift_service.dart';
 
 class GiftsInboxDialog extends StatefulWidget {
   final InventoryManager inventoryManager;

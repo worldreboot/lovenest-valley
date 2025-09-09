@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 // removed unused imports
-import 'package:lovenest/screens/menu_screen.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/screens/menu_screen.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 import 'services/farm_repository.dart';
-import 'package:lovenest/screens/splash_screen.dart';
+import 'package:lovenest_valley/screens/splash_screen.dart';
 import 'services/farm_tile_service.dart';
 import 'package:flame/flame.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
-import 'package:lovenest/screens/auth_flow_screen.dart';
-import 'package:lovenest/screens/offline_screen.dart';
-import 'package:lovenest/screens/debug_auth_screen.dart';
-import 'package:lovenest/screens/map_test_screen.dart';
+import 'package:lovenest_valley/screens/auth_flow_screen.dart';
+import 'package:lovenest_valley/screens/offline_screen.dart';
+import 'package:lovenest_valley/screens/debug_auth_screen.dart';
+
 import 'services/push_service.dart';
 import 'services/revenuecat_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -123,7 +123,6 @@ Future<void> _preloadGameAssets() async {
     await Flame.images.loadAll([
       'ground.png',
       'wood.png',
-      'owl.png',
       'user.png',
       'seashell.png',
       'gift_1.png',
@@ -149,7 +148,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/offline': (context) => const OfflineScreen(),
         '/debug': (context) => const DebugAuthScreen(),
-        '/map-test': (context) => const MapTestScreen(),
+
       },
       builder: (context, child) {
         // Debug button removed - return child directly

@@ -192,7 +192,7 @@ class _DailyQuestionLetterSheetState extends State<DailyQuestionLetterSheet> {
                   const SizedBox(height: 12),
                   Text(
                     widget.onCollectSeed != null
-                        ? 'The owl has prepared a special seed for you!'
+                        ? 'Plant the seed to answer the question!'
                         : 'You have already collected this seed.',
                     style: TextStyle(
                       fontSize: 14,
@@ -204,7 +204,7 @@ class _DailyQuestionLetterSheetState extends State<DailyQuestionLetterSheet> {
                   const SizedBox(height: 8),
                   Text(
                     widget.onCollectSeed != null
-                        ? 'Plant it and water it for 3 days to see it bloom.'
+                        ? 'Plant it and water it for 3 days to see it bloom into a unique flower.'
                         : 'Check your inventory to plant and grow it.',
                     style: TextStyle(
                       fontSize: 12,

@@ -2,7 +2,7 @@ import 'package:flame/flame.dart';
 import 'package:flame/sprite.dart';
 import 'package:flame/widgets.dart';
 import 'package:flutter/material.dart';
-import 'package:lovenest/game/simple_enhanced/seeds/seed_sprites.dart';
+import 'package:lovenest_valley/game/simple_enhanced/seeds/seed_sprites.dart';
 
 class SeedSpritePreview extends StatefulWidget {
   final String growthStage; // 'planted' | 'growing' | 'fully_grown'

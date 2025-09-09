@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../config/supabase_config.dart';
 import '../models/chest_storage.dart';
+import '../services/garden_repository.dart';
 
 class ChestStorageService {
   static const String _tableName = 'game_objects';
@@ -55,7 +56,62 @@ class ChestStorageService {
     );
     
     await _chestChannel!.subscribe();
-    debugPrint('[ChestStorageService] Real-time subscription active for chests');
+    debugPrint('[ChestStorageService] Real-time subscription active for couple chests');
+  }
+
+  /// Initialize real-time subscriptions for individual user chest updates
+  Future<void> initializeRealtimeForUser(String userId) async {
+    debugPrint('[ChestStorageService] Initializing real-time for individual user: $userId');
+    // Idempotent: keep a single controller and avoid breaking existing listeners
+    _chestUpdatesController ??= StreamController<ChestStorage>.broadcast();
+
+    // If already initialized for this user, do nothing
+    if (_activeCoupleId == 'user_$userId' && _chestChannel != null) {
+      return;
+    }
+
+    // If switching users, clean up previous channel
+    try {
+      await _chestChannel?.unsubscribe();
+    } catch (_) {}
+
+    _activeCoupleId = 'user_$userId';
+    _chestChannel = _client.channel('chest_storage_user_$userId');
+    
+    _chestChannel!.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: _tableName,
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'user_id',
+        value: userId,
+      ),
+      callback: _handleChestChange,
+    );
+    
+    await _chestChannel!.subscribe();
+    debugPrint('[ChestStorageService] Real-time subscription active for individual user chests');
+  }
+
+  /// Initialize real-time for the current user's chests (couple or individual)
+  Future<void> initializeRealtimeForCurrentUser() async {
+    final userId = SupabaseConfig.currentUserId;
+    if (userId == null) return;
+
+    try {
+      // Check if user is in a couple
+      final couple = await GardenRepository().getUserCouple();
+      if (couple != null) {
+        // Initialize for couple chests
+        await initializeRealtime(couple.id);
+      } else {
+        // Initialize for individual user chests
+        await initializeRealtimeForUser(userId);
+      }
+    } catch (e) {
+      debugPrint('[ChestStorageService] Error initializing real-time for current user: $e');
+    }
   }
 
   /// Handle real-time chest updates
@@ -88,16 +144,23 @@ class ChestStorageService {
 
   /// Create a new chest at the specified position
   Future<ChestStorage> createChest({
-    required String coupleId,
+    String? coupleId, // Optional - for couple-owned chests
+    String? userId, // Optional - for individual user chests
     required Position position,
     String? name,
     int maxCapacity = 20,
   }) async {
     debugPrint('[ChestStorageService] Creating chest at position: $position');
     
+    // Ensure either coupleId OR userId is provided, but not both
+    if ((coupleId == null && userId == null) || (coupleId != null && userId != null)) {
+      throw Exception('Chest must be owned by either a couple OR an individual user, not both or neither');
+    }
+    
     final chest = ChestStorage(
       id: _uuid.v4(),
       coupleId: coupleId,
+      userId: userId,
       position: position,
       items: [],
       maxCapacity: maxCapacity,
@@ -126,6 +189,43 @@ class ChestStorageService {
     }
   }
 
+  /// Create a chest for the current user (automatically determines ownership)
+  Future<ChestStorage> createChestForCurrentUser({
+    required Position position,
+    String? name,
+    int maxCapacity = 20,
+  }) async {
+    final currentUserId = SupabaseConfig.currentUserId;
+    if (currentUserId == null) {
+      throw Exception('User not authenticated');
+    }
+
+    try {
+      // Check if user is in a couple
+      final couple = await GardenRepository().getUserCouple();
+      if (couple != null) {
+        // Create couple-owned chest
+        return await createChest(
+          coupleId: couple.id,
+          position: position,
+          name: name,
+          maxCapacity: maxCapacity,
+        );
+      } else {
+        // Create individual user chest
+        return await createChest(
+          userId: currentUserId,
+          position: position,
+          name: name,
+          maxCapacity: maxCapacity,
+        );
+      }
+    } catch (e) {
+      debugPrint('[ChestStorageService] Error creating chest for current user: $e');
+      rethrow;
+    }
+  }
+
   /// Get all chests for a couple
   Future<List<ChestStorage>> getChests(String coupleId) async {
     debugPrint('[ChestStorageService] Fetching chests for couple: $coupleId');
@@ -144,6 +244,47 @@ class ChestStorageService {
     } catch (e) {
       debugPrint('[ChestStorageService] Error fetching chests: $e');
       rethrow;
+    }
+  }
+
+  /// Get all chests for an individual user (when not in a couple)
+  Future<List<ChestStorage>> getUserChests(String userId) async {
+    debugPrint('[ChestStorageService] Fetching chests for individual user: $userId');
+    
+    try {
+      final response = await _client
+          .from(_tableName)
+          .select()
+          .eq('user_id', userId)
+          .eq('type', _chestType)
+          .order('created_at');
+
+      final chests = response.map<ChestStorage>((json) => ChestStorage.fromJson(json)).toList();
+      debugPrint('[ChestStorageService] Found ${chests.length} individual user chests');
+      return chests;
+    } catch (e) {
+      debugPrint('[ChestStorageService] Error fetching individual user chests: $e');
+      rethrow;
+    }
+  }
+
+  /// Get all chests for the current user (couple or individual)
+  Future<List<ChestStorage>> getCurrentUserChests() async {
+    final userId = SupabaseConfig.currentUserId;
+    if (userId == null) return [];
+
+    try {
+      // First try to get couple chests
+      final couple = await GardenRepository().getUserCouple();
+      if (couple != null) {
+        return await getChests(couple.id);
+      } else {
+        // Fallback to individual user chests
+        return await getUserChests(userId);
+      }
+    } catch (e) {
+      debugPrint('[ChestStorageService] Error getting current user chests: $e');
+      return [];
     }
   }
 
@@ -280,7 +421,7 @@ class ChestStorageService {
     try {
       // Use a simple distance calculation for now
       // In a real implementation, you might want to use PostGIS for better performance
-      final chests = await getChests(SupabaseConfig.currentUserId ?? '');
+      final chests = await getCurrentUserChests();
       
       return chests.where((chest) {
         final distance = _calculateDistance(position, chest.position);

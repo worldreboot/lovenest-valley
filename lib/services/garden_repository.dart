@@ -43,10 +43,40 @@ class GardenRepository {
     return response != null ? Couple.fromJson(response) : null;
   }
 
+  /// Get the current user's partner profile information
+  Future<Map<String, dynamic>?> getPartnerProfile() async {
+    final couple = await getUserCouple();
+    if (couple == null) return null;
+
+    final userId = SupabaseConfig.currentUserId;
+    if (userId == null) return null;
+
+    // Determine which user is the partner
+    final partnerId = couple.user1Id == userId ? couple.user2Id : couple.user1Id;
+
+    try {
+      final response = await SupabaseConfig.client
+          .from('profiles')
+          .select('id, username, avatar_url, created_at')
+          .eq('id', partnerId)
+          .maybeSingle();
+
+      return response;
+    } catch (e) {
+      debugPrint('[GardenRepository] Error getting partner profile: $e');
+      return null;
+    }
+  }
+
   /// Create a new couple relationship
   Future<Couple> createCouple(String partnerUserId) async {
     final userId = SupabaseConfig.currentUserId;
     if (userId == null) throw Exception('User not authenticated');
+
+    // Critical validation: Prevent users from creating couples with themselves
+    if (userId == partnerUserId) {
+      throw Exception('Cannot create a couple relationship with yourself');
+    }
 
     final coupleData = {
       'id': const Uuid().v4(),

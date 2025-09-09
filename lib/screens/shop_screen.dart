@@ -1,13 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:lovenest/models/shop_item.dart';
-import 'package:lovenest/services/pending_gift_service.dart';
-import 'package:lovenest/config/supabase_config.dart';
-import 'package:lovenest/services/image_generation_service.dart';
-import 'package:lovenest/services/shop_service.dart';
-import 'package:lovenest/models/inventory.dart';
-import 'package:lovenest/services/currency_service.dart';
+import 'package:lovenest_valley/models/shop_item.dart';
+import 'package:lovenest_valley/services/pending_gift_service.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/services/image_generation_service.dart';
+import 'package:lovenest_valley/services/shop_service.dart';
+import 'package:lovenest_valley/models/inventory.dart';
+import 'package:lovenest_valley/services/currency_service.dart';
 
 class ShopScreen extends StatefulWidget {
   final InventoryManager inventoryManager;

@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:lovenest/models/mood_weather_model.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/models/mood_weather_model.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 
 class MoodWeatherService {
   final SupabaseClient _client = SupabaseConfig.client;

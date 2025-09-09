@@ -4,19 +4,20 @@ import 'package:flame/game.dart';
 import 'package:flame/sprite.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lovenest/components/player.dart';
-import 'package:lovenest/utils/pathfinding.dart';
-import 'package:lovenest/game/base/game_with_grid.dart';
-import 'package:lovenest/components/world/bonfire.dart';
-import 'package:lovenest/components/world/hoe_animation.dart';
-import 'package:lovenest/components/world/watering_can_animation.dart';
-import 'package:lovenest/components/owl_npc.dart';
-import 'package:lovenest/services/question_service.dart';
-import 'package:lovenest/models/memory_garden/question.dart';
-import 'package:lovenest/behaviors/camera_bounds.dart';
-import 'package:lovenest/models/inventory.dart';
-import 'package:lovenest/terrain/terrain_type.dart';
-import 'package:lovenest/terrain/terrain_parser.dart';
+import 'package:lovenest_valley/components/player.dart';
+import 'package:lovenest_valley/utils/pathfinding.dart';
+import 'package:lovenest_valley/game/base/game_with_grid.dart';
+import 'package:lovenest_valley/components/world/bonfire.dart';
+import 'package:lovenest_valley/components/world/hoe_animation.dart';
+import 'package:lovenest_valley/components/world/watering_can_animation.dart';
+import 'package:lovenest_valley/components/owl_npc.dart';
+import 'package:lovenest_valley/services/question_service.dart';
+import 'package:lovenest_valley/models/memory_garden/question.dart';
+import 'package:lovenest_valley/behaviors/camera_bounds.dart';
+import 'package:lovenest_valley/models/inventory.dart';
+import 'package:lovenest_valley/terrain/terrain_type.dart';
+import 'package:lovenest_valley/terrain/terrain_parser.dart';
+import 'package:lovenest_valley/components/world/decoration_object.dart';
 import 'package:flame/camera.dart';
 import 'dart:async';
 import 'dart:math';
@@ -90,6 +91,9 @@ class VertexTerrainGame extends GameWithGrid with HasCollisionDetection, HasKeyb
     // Render the initial tilemap
     await _renderInitialMap();
     debugPrint('[VertexTerrainGame] ✅ Tilemap rendered');
+    
+    // Clean up any decorations that are on or adjacent to dirt tiles
+    await _cleanupDecorationsOnDirtTiles();
     
     // Create pathfinding grid
     _pathfindingGrid = PathfindingGrid(mapWidthInTiles, mapHeightInTiles, tileSize);
@@ -215,6 +219,9 @@ class VertexTerrainGame extends GameWithGrid with HasCollisionDetection, HasKeyb
     final currentGid = getGidForTile(tileX, tileY);
     // For now, allow tilling any tile. You can add validation here.
     
+    // Remove any decorations on this tile before tilling
+    _removeDecorationsAtGridPosition(tileX, tileY);
+    
     // 2. Update the four vertices in the mapVertexGrid.
     final newTerrainId = Terrain.TILLED.id;
     mapVertexGrid[tileY][tileX] = newTerrainId;
@@ -241,6 +248,60 @@ class VertexTerrainGame extends GameWithGrid with HasCollisionDetection, HasKeyb
           _updateTileVisual(x, y, newGid);
         }
       }
+    }
+    debugPrint('[VertexTerrainGame] ✅ Visual update complete for surrounding tiles');
+  }
+  
+  /// Remove decorations at a specific grid position and all adjacent tiles
+  void _removeDecorationsAtGridPosition(int gridX, int gridY) {
+    final tileSize = VertexTerrainGame.tileSize;
+    final decorationsToRemove = <DecorationObject>[];
+    
+    // Check the center tile and all 8 adjacent tiles (3x3 grid)
+    for (int dy = -1; dy <= 1; dy++) {
+      for (int dx = -1; dx <= 1; dx++) {
+        final checkX = gridX + dx;
+        final checkY = gridY + dy;
+        
+        // Calculate tile boundaries for this position
+        final tileLeft = checkX * tileSize;
+        final tileTop = checkY * tileSize;
+        final tileRight = tileLeft + tileSize;
+        final tileBottom = tileTop + tileSize;
+        
+        // Find all decoration objects that overlap with this tile
+        final decorations = descendants().whereType<DecorationObject>().toList();
+        
+        for (final decoration in decorations) {
+          // Check if the decoration overlaps with the tile
+          final decorationLeft = decoration.position.x;
+          final decorationTop = decoration.position.y;
+          final decorationRight = decorationLeft + decoration.size.x;
+          final decorationBottom = decorationTop + decoration.size.y;
+          
+          // Check for overlap
+          if (decorationLeft < tileRight && 
+              decorationRight > tileLeft && 
+              decorationTop < tileBottom && 
+              decorationBottom > tileTop) {
+            
+            // Only add if not already in the list to avoid duplicates
+            if (!decorationsToRemove.contains(decoration)) {
+              debugPrint('[VertexTerrainGame] 🗑️ Removing decoration ${decoration.objectType} at grid ($checkX, $checkY)');
+              decorationsToRemove.add(decoration);
+            }
+          }
+        }
+      }
+    }
+    
+    // Remove the decorations from the game world
+    for (final decoration in decorationsToRemove) {
+      decoration.removeFromParent();
+    }
+    
+    if (decorationsToRemove.isNotEmpty) {
+      debugPrint('[VertexTerrainGame] ✅ Removed ${decorationsToRemove.length} decoration(s) from grid ($gridX, $gridY) and adjacent tiles');
     }
   }
 
@@ -439,6 +500,70 @@ class VertexTerrainGame extends GameWithGrid with HasCollisionDetection, HasKeyb
           _isPlayerMoving = false;
         }
       }
+    }
+  }
+
+  /// Check if a tile is tilled (dirt)
+  bool _isTileTilled(int gridX, int gridY) {
+    if (gridX >= 0 && gridX < mapWidthInTiles - 1 && gridY >= 0 && gridY < mapHeightInTiles - 1) {
+      // Check if all 4 vertices of the tile are dirt (tilled)
+      final dirtId = Terrain.DIRT.id;
+      return mapVertexGrid[gridY][gridX] == dirtId &&
+             mapVertexGrid[gridY][gridX + 1] == dirtId &&
+             mapVertexGrid[gridY + 1][gridX] == dirtId &&
+             mapVertexGrid[gridY + 1][gridX + 1] == dirtId;
+    }
+    return false;
+  }
+
+  /// Clean up decorations that are on or adjacent to dirt tiles on app reload
+  Future<void> _cleanupDecorationsOnDirtTiles() async {
+    debugPrint('[VertexTerrainGame] 🧹 Cleaning up decorations on dirt tiles...');
+    
+    final decorations = descendants().whereType<DecorationObject>().toList();
+    final decorationsToRemove = <DecorationObject>[];
+    
+    for (final decoration in decorations) {
+      // Calculate the grid position of this decoration
+      final decorationGridX = (decoration.position.x / tileSize).floor();
+      final decorationGridY = (decoration.position.y / tileSize).floor();
+      
+      // Check if the decoration is on or adjacent to a dirt tile
+      bool shouldRemove = false;
+      
+      // Check a 3x3 grid around the decoration
+      for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+          final checkX = decorationGridX + dx;
+          final checkY = decorationGridY + dy;
+          
+          // Bounds check
+          if (checkX >= 0 && checkX < mapWidthInTiles && checkY >= 0 && checkY < mapHeightInTiles) {
+            // Check if this tile is dirt (tilled)
+            if (_isTileTilled(checkX, checkY)) {
+              shouldRemove = true;
+              break;
+            }
+          }
+        }
+        if (shouldRemove) break;
+      }
+      
+      if (shouldRemove) {
+        decorationsToRemove.add(decoration);
+        debugPrint('[VertexTerrainGame] 🗑️ Marking decoration for removal: ${decoration.objectType} at grid ($decorationGridX, $decorationGridY)');
+      }
+    }
+    
+    // Remove the decorations
+    for (final decoration in decorationsToRemove) {
+      decoration.removeFromParent();
+    }
+    
+    if (decorationsToRemove.isNotEmpty) {
+      debugPrint('[VertexTerrainGame] ✅ Cleaned up ${decorationsToRemove.length} decoration(s) on dirt tiles');
+    } else {
+      debugPrint('[VertexTerrainGame] ✅ No decorations found on dirt tiles');
     }
   }
 } 

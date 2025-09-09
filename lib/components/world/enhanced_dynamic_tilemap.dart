@@ -4,8 +4,8 @@ import 'package:flame/components.dart';
 import 'package:flame/sprite.dart';
 import 'package:flame_tiled/flame_tiled.dart';
 import 'package:flutter/foundation.dart';
-import 'package:lovenest/game/base/game_with_grid.dart';
-import 'package:lovenest/utils/tiled_parser.dart' as custom_parser;
+import 'package:lovenest_valley/game/base/game_with_grid.dart';
+import 'package:lovenest_valley/utils/tiled_parser.dart' as custom_parser;
 
 /// Enhanced dynamic tilemap that uses our custom Tiled parser
 /// This provides better control over tile updates and auto-tiling

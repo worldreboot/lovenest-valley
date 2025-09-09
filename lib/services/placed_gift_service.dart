@@ -1,4 +1,4 @@
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 
 class PlacedGiftService {
   static Future<bool> placeGift({

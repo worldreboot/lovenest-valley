@@ -2,17 +2,20 @@ import 'dart:ui' as ui;
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
-import 'package:lovenest/services/avatar_generation_service.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/services/avatar_generation_service.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lovenest/components/world/building.dart';
-import 'package:lovenest/components/world/farm_tile.dart';
-import 'package:lovenest/game/base/game_with_grid.dart';
-import 'package:lovenest/utils/pathfinding.dart';
+import 'package:lovenest_valley/components/world/building.dart';
+import 'package:lovenest_valley/components/world/farm_tile.dart';
+import 'package:lovenest_valley/components/world/decoration_object.dart';
+import 'package:lovenest_valley/game/base/game_with_grid.dart';
+import 'package:lovenest_valley/utils/pathfinding.dart';
+import 'package:lovenest_valley/services/question_service.dart';
+import 'package:lovenest_valley/services/daily_question_seed_collection_service.dart';
 
 enum PlayerDirection {
   up,
@@ -104,8 +107,6 @@ class Player extends SpriteAnimationComponent with HasGameRef<GameWithGrid>, Col
         final avatarService = AvatarGenerationService();
         final url = await avatarService.getSpritesheetUrl(userId);
         if (url != null && url.isNotEmpty) {
-          // ignore: avoid_print
-          print('[Player] Loading normalized/custom spritesheet from URL');
           if (url.startsWith('http')) {
             final resp = await http.get(Uri.parse(url));
             if (resp.statusCode == 200) {
@@ -115,8 +116,6 @@ class Player extends SpriteAnimationComponent with HasGameRef<GameWithGrid>, Col
               ui.decodeImageFromList(Uint8List.fromList(bytes), (img) => completer.complete(img));
               spriteSheet = await completer.future;
             } else {
-              // ignore: avoid_print
-              print('[Player] Network load failed (${resp.statusCode}), falling back to asset');
               spriteSheet = await game.images.load('user.png');
             }
           } else {
@@ -124,18 +123,12 @@ class Player extends SpriteAnimationComponent with HasGameRef<GameWithGrid>, Col
             spriteSheet = await game.images.load(url);
           }
         } else {
-          // ignore: avoid_print
-          print('[Player] No custom spritesheet URL found; using default asset');
           spriteSheet = await game.images.load('user.png');
         }
       } else {
-        // ignore: avoid_print
-        print('[Player] No authenticated user; using default asset');
         spriteSheet = await game.images.load('user.png');
       }
     } catch (e) {
-      // ignore: avoid_print
-      print('[Player] Failed to load custom spritesheet, falling back. Error: $e');
       spriteSheet = await game.images.load('user.png');
     }
     spriteSheetImage = spriteSheet; // Store the image for static animations
@@ -354,7 +347,11 @@ class Player extends SpriteAnimationComponent with HasGameRef<GameWithGrid>, Col
   @override
   void update(double dt) {
     super.update(dt);
-    
+
+    // Dynamic Y-sort: player with greater screen Y renders above
+    final baselineY = position.y + size.y;
+    priority = 1000 + baselineY.toInt();
+
     // Handle pathfinding movement
     if (currentPath.isNotEmpty && currentPathIndex < currentPath.length) {
       final target = currentPath[currentPathIndex];
@@ -386,7 +383,7 @@ class Player extends SpriteAnimationComponent with HasGameRef<GameWithGrid>, Col
       }
     }
     
-    // Apply movement with smooth interpolation
+    // Apply movement with smooth interpolation and grid-aware collision
     if (!velocity.isZero()) {
       // Store current position for interpolation
       if (_interpolationStart == null) {
@@ -394,12 +391,75 @@ class Player extends SpriteAnimationComponent with HasGameRef<GameWithGrid>, Col
         _interpolationTime = 0.0;
       }
       
-      // Update position
-      position += velocity * dt;
-      _interpolationTime += dt;
+      // Grid-aware movement: attempt axis-separated motion against obstacle grid
+      final double tile = game.pathfindingGrid.tileSize;
+      var next = position.clone();
+      bool collisionDetected = false; // Flag to track if any collision occurred
       
-      // Broadcast position with rate limiting
-      _broadcastPosition();
+      // X axis
+      final double dx = velocity.x * dt;
+      if (dx != 0) {
+        final tryX = next.x + dx;
+        final gx = (tryX / tile).floor();
+        final gy = (next.y / tile).floor();
+        if (!game.pathfindingGrid.isObstacle(gx, gy)) {
+          // Check for decoration object collisions
+          bool canMoveX = true;
+          final decorationCollision = _checkDecorationCollision(Vector2(tryX, next.y));
+          if (decorationCollision['collision']) {
+            canMoveX = false;
+            // Only apply special stopping logic for houses and wooden objects
+            if (decorationCollision['objectType'] == 'house' || decorationCollision['objectType'] == 'wooden') {
+              _stopWalkingOnCollision();
+              collisionDetected = true; // Mark that collision occurred
+            }
+          }
+          if (canMoveX) {
+            next.x = tryX;
+          }
+        } else {
+          velocity.x = 0;
+        }
+      }
+      
+      // Y axis
+      final double dy = velocity.y * dt;
+      if (dy != 0) {
+        final tryY = next.y + dy;
+        final gx = (next.x / tile).floor();
+        final gy = (tryY / tile).floor();
+        if (!game.pathfindingGrid.isObstacle(gx, gy)) {
+          // Check for decoration object collisions
+          bool canMoveY = true;
+          final decorationCollision = _checkDecorationCollision(Vector2(next.x, tryY));
+          if (decorationCollision['collision']) {
+            canMoveY = false;
+            // Only apply special stopping logic for houses and wooden objects
+            if (decorationCollision['objectType'] == 'house' || decorationCollision['objectType'] == 'wooden') {
+              _stopWalkingOnCollision();
+              collisionDetected = true; // Mark that collision occurred
+            }
+          }
+          if (canMoveY) {
+            next.y = tryY;
+          }
+        } else {
+          velocity.y = 0;
+        }
+      }
+      
+      // Only update position if no collision was detected
+      if (!collisionDetected) {
+        position.setFrom(next);
+        _interpolationTime += dt;
+        
+        // Broadcast position with rate limiting
+        _broadcastPosition();
+      } else {
+        // Reset interpolation when stopped due to collision
+        _interpolationStart = null;
+        _interpolationTime = 0.0;
+      }
     } else {
       // Reset interpolation when stopped
       _interpolationStart = null;
@@ -408,6 +468,55 @@ class Player extends SpriteAnimationComponent with HasGameRef<GameWithGrid>, Col
     
     // Update animation based on current movement
     _updateAnimation();
+
+    // Check if player should render behind decoration objects based on collision box bottom
+    final decorations = game.descendants().whereType<DecorationObject>();
+    
+    // Find the closest decoration object that the player should render behind
+    DecorationObject? closestBehindDecoration;
+    double closestDistance = double.infinity;
+    
+    for (final decoration in decorations) {
+      if (!decoration.isWalkable) {
+        final decorationCollisionBoxBottom = decoration.position.y + decoration.size.y - decoration.footprintHeight;
+        final decorationCollisionBoxTop = decoration.position.y + decoration.size.y - decoration.footprintHeight; // Same as bottom since collision box is at bottom
+        
+        // Calculate player's bottom left corner Y
+        final playerBottomLeftY = position.y + size.y / 2;
+        
+        // Check if player is behind the decoration (player bottom left Y < decoration collision box top Y)
+        final playerIsBehind = playerBottomLeftY < decorationCollisionBoxTop;
+        
+        // Log the Y coordinates and behind status for all decoration objects
+        // debugPrint('[Player] ${decoration.objectType}: player bottom left Y: ${playerBottomLeftY.toStringAsFixed(1)}, decoration collision top Y: ${decorationCollisionBoxTop.toStringAsFixed(1)}, behind: $playerIsBehind');
+        
+        if (playerIsBehind) {
+          // Calculate distance from player to decoration center
+          final decorationCenter = Vector2(
+            decoration.position.x + decoration.size.x / 2,
+            decoration.position.y + decoration.size.y / 2
+          );
+          final playerCenter = Vector2(position.x, position.y + size.y / 2);
+          final distance = playerCenter.distanceTo(decorationCenter);
+          
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestBehindDecoration = decoration;
+          }
+        }
+      }
+    }
+    
+    // Apply depth sorting for the closest decoration
+    if (closestBehindDecoration != null) {
+      final decorationCollisionBoxBottom = closestBehindDecoration!.position.y + closestBehindDecoration!.size.y - closestBehindDecoration!.footprintHeight;
+      priority = closestBehindDecoration!.priority - 1; // Render behind this decoration
+    }
+
+    // Log player position every frame
+    final bottomLeftX = position.x - size.x / 2;
+    final bottomLeftY = position.y + size.y / 2;
+    // debugPrint('[Player] Bottom left corner: (${bottomLeftX.toStringAsFixed(1)}, ${bottomLeftY.toStringAsFixed(1)})');
   }
   
   void _broadcastPosition() {
@@ -511,6 +620,58 @@ class Player extends SpriteAnimationComponent with HasGameRef<GameWithGrid>, Col
     return position + velocity * predictionTime;
   }
 
+  /// Check if a position would collide with decoration objects and return collision info
+  /// Returns a map with 'collision' (bool) and 'objectType' (String?) keys
+  Map<String, dynamic> _checkDecorationCollision(Vector2 testPosition) {
+    // Check for collisions with decoration objects - search deeper in component tree
+    final decorations = game.descendants().whereType<DecorationObject>();
+    
+    for (final decoration in decorations) {
+      if (!decoration.isWalkable) {
+        // Check if the test position would overlap with the decoration's collision area
+        final decorationLeft = decoration.position.x + (decoration.size.x - decoration.footprintSize.x) / 2;
+        final decorationTop = decoration.position.y + decoration.size.y - decoration.footprintHeight;
+        final decorationRight = decorationLeft + decoration.footprintSize.x;
+        final decorationBottom = decorationTop + decoration.footprintHeight;
+        
+        final playerLeft = testPosition.x - size.x / 2;
+        final playerTop = testPosition.y - size.y / 2;
+        final playerRight = testPosition.x + size.x / 2;
+        final playerBottom = testPosition.y + size.y / 2;
+        
+        // Debug: Log collision detection details for houses and wooden objects
+        if (decoration.objectType == 'house' || decoration.objectType == 'wooden') {
+          // debugPrint('[Collision] Testing ${decoration.objectType}: player bounds (${playerLeft.toStringAsFixed(1)}, ${playerTop.toStringAsFixed(1)}) to (${playerRight.toStringAsFixed(1)}, ${playerBottom.toStringAsFixed(1)})');
+          // debugPrint('[Collision] ${decoration.objectType} bounds: (${decorationLeft.toStringAsFixed(1)}, ${decorationTop.toStringAsFixed(1)}) to (${decorationRight.toStringAsFixed(1)}, ${decorationBottom.toStringAsFixed(1)})');
+        }
+        
+        // Check for overlap
+        if (playerLeft < decorationRight && 
+            playerRight > decorationLeft && 
+            playerTop < decorationBottom && 
+            playerBottom > decorationTop) {
+          
+          if (decoration.objectType == 'house' || decoration.objectType == 'wooden') {
+            // debugPrint('[Collision] OVERLAP DETECTED with ${decoration.objectType}!');
+          }
+          
+          // Only block movement if player overlaps with the decoration's collision area
+          // Block movement when player is inside or would pass through the decoration
+          if (playerBottom > decorationTop && playerTop < decorationBottom) {
+            if (decoration.objectType == 'house' || decoration.objectType == 'wooden') {
+              // debugPrint('[Collision] BLOCKING movement - player overlaps with ${decoration.objectType}');
+            }
+            return {
+              'collision': true,
+              'objectType': decoration.objectType,
+            };
+          }
+        }
+      }
+    }
+    return {'collision': false, 'objectType': null};
+  }
+
   @override
   bool onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
     // Simple collision - stop movement
@@ -526,6 +687,83 @@ class Player extends SpriteAnimationComponent with HasGameRef<GameWithGrid>, Col
       // Don't stop pathfinding on collision, let it navigate around
       return false;
     }
+
+    // Handle other collisions
     return true;
+  }
+
+  /// Stop walking animation and set to idle when colliding with houses or wooden objects
+  void _stopWalkingOnCollision() {
+    // Stop walking animation and set to idle
+    _disableAutoAnimation = true; // Disable auto-animation to prevent rapid switching
+    
+    // Use the static idle sprite (first frame) instead of the animation
+    // This ensures the player shows the default forward-facing pose
+    animation = SpriteAnimation.fromFrameData(
+      spriteSheetImage,
+      SpriteAnimationData.sequenced(
+        amount: 1,
+        stepTime: 1.0,
+        textureSize: idleSprite.srcSize,
+        texturePosition: idleSprite.srcPosition,
+      ),
+    );
+    
+    // Ensure the player faces forward (downward) by resetting scale
+    scale.x = 1; // Normal orientation (forward-facing)
+    currentDirection = PlayerDirection.idle; // Update direction state
+    
+    // COMPLETELY STOP ALL MOVEMENT SYSTEMS to prevent sliding/continuing movement
+    velocity = Vector2.zero(); // Stop all velocity
+    manualTarget = null; // Clear manual movement target
+    currentPath.clear(); // Clear pathfinding path
+    currentPathIndex = 0; // Reset pathfinding index
+    
+    // Also clear any interpolation state to prevent residual movement
+    _interpolationStart = null;
+    _interpolationTime = 0.0;
+    
+    _disableAutoAnimation = false; // Re-enable auto-animation
+  }
+
+  /// Check if the user currently has a daily question available
+  /// Returns true if there's a daily question the user hasn't collected yet
+  Future<bool> hasDailyQuestionCurrently() async {
+    try {
+      // Import the QuestionService to check for daily questions
+      final dailyQuestion = await QuestionService.fetchDailyQuestion();
+      if (dailyQuestion == null) {
+        return false; // No daily question available
+      }
+
+      // Check if the user has already collected the seed for this question
+      final hasCollected = await DailyQuestionSeedCollectionService.hasUserCollectedSeed(dailyQuestion.id);
+      
+      // Return true if there's a question but user hasn't collected it yet
+      return !hasCollected;
+    } catch (e) {
+      debugPrint('[Player] ❌ Error checking daily question status: $e');
+      return false;
+    }
+  }
+
+  /// Get the current daily question text if available
+  /// Returns the question text or null if no question available or already collected
+  Future<String?> getCurrentDailyQuestionText() async {
+    try {
+      final dailyQuestion = await QuestionService.fetchDailyQuestion();
+      if (dailyQuestion == null) {
+        return null; // No daily question available
+      }
+
+      // Check if the user has already collected the seed for this question
+      final hasCollected = await DailyQuestionSeedCollectionService.hasUserCollectedSeed(dailyQuestion.id);
+      
+      // Return question text only if user hasn't collected it yet
+      return hasCollected ? null : dailyQuestion.text;
+    } catch (e) {
+      debugPrint('[Player] ❌ Error getting daily question text: $e');
+      return null;
+    }
   }
 } 

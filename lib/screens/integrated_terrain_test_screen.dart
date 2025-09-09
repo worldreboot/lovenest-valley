@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
-import 'package:lovenest/game/simple_enhanced_farm_game.dart';
-import 'package:lovenest/models/inventory.dart';
+import 'package:lovenest_valley/game/simple_enhanced_farm_game.dart';
+import 'package:lovenest_valley/models/inventory.dart';
 
 class IntegratedTerrainTestScreen extends StatefulWidget {
   const IntegratedTerrainTestScreen({super.key});

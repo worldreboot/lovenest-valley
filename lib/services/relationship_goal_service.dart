@@ -1,6 +1,6 @@
-import 'package:lovenest/models/relationship_goal.dart';
-import 'package:lovenest/services/garden_repository.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/models/relationship_goal.dart';
+import 'package:lovenest_valley/services/garden_repository.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 import 'package:uuid/uuid.dart';
 
 /// In-memory placeholder service for relationship goals.

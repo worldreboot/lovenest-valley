@@ -44,6 +44,8 @@ extension SeashellsExtension on SimpleEnhancedFarmGame {
       },
     );
     world.add(seashell);
+    seashellPositions.add(GridPos(x.toInt(), y.toInt()));
+    _pathfindingGrid.setObstacle(x.toInt(), y.toInt(), true);
     debugPrint('[SimpleEnhancedFarmGame] 🐚 Seashell spawned at position ($x, $y)');
   }
 

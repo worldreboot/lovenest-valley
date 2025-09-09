@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CoupleLinkService {
@@ -38,6 +38,18 @@ class CoupleLinkService {
 
   Future<String> redeem(String code) async {
     try {
+      // Get the invite details first to validate it's not the user's own invite
+      final invite = await getInviteByCode(code);
+      if (invite != null) {
+        final inviterId = invite['inviter_id'] as String?;
+        final currentUserId = SupabaseConfig.currentUserId;
+        
+        // Critical validation: Prevent users from accepting their own invites
+        if (inviterId == currentUserId) {
+          throw Exception('Cannot accept your own invite - you cannot be a couple with yourself');
+        }
+      }
+
       final res = await _client.rpc('redeem_couple_invite', params: {
         'p_code': code,
       });

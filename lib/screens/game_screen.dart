@@ -1,43 +1,43 @@
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
-import 'package:lovenest/game/simple_enhanced_farm_game.dart';
+import 'package:lovenest_valley/game/simple_enhanced_farm_game.dart';
 import '../models/inventory.dart';
 import '../components/ui/inventory_bar.dart';
-import 'package:lovenest/game/farmhouse_interior_game.dart';
-import 'package:lovenest/screens/memory_garden/daily_question_letter_sheet.dart';
-import 'package:lovenest/models/memory_garden/question.dart';
-import 'package:lovenest/models/memory_garden/seed.dart';
-import 'package:lovenest/services/question_service.dart';
-import 'package:lovenest/services/farm_tile_service.dart';
-import 'package:lovenest/services/daily_question_seed_collection_service.dart';
-import 'package:lovenest/services/garden_repository.dart';
-import 'package:lovenest/config/supabase_config.dart';
-import 'package:lovenest/services/mood_weather_service.dart';
-import 'package:lovenest/models/mood_weather_model.dart';
-import 'package:lovenest/services/auth_service.dart';
+import 'package:lovenest_valley/game/farmhouse_interior_game.dart';
+import 'package:lovenest_valley/screens/memory_garden/daily_question_letter_sheet.dart';
+import 'package:lovenest_valley/models/memory_garden/question.dart';
+import 'package:lovenest_valley/models/memory_garden/seed.dart';
+import 'package:lovenest_valley/services/question_service.dart';
+import 'package:lovenest_valley/services/farm_tile_service.dart';
+import 'package:lovenest_valley/services/daily_question_seed_collection_service.dart';
+import 'package:lovenest_valley/services/garden_repository.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/services/mood_weather_service.dart';
+import 'package:lovenest_valley/models/mood_weather_model.dart';
+import 'package:lovenest_valley/services/auth_service.dart';
 
-import 'package:lovenest/screens/daily_mood_prompt_screen.dart';
-import 'package:lovenest/screens/shop_screen.dart';
-import 'package:lovenest/screens/stardew_dialogue_box.dart';
-import 'package:lovenest/screens/link_partner_screen.dart';
-import 'package:lovenest/screens/audio_record_dialog.dart';
-import 'package:lovenest/screens/onboarding_screen.dart';
-import 'package:lovenest/components/ui/chest_storage_ui.dart';
-import 'package:lovenest/services/pending_gift_service.dart';
-import 'package:lovenest/screens/widgets/gifts_inbox_dialog.dart';
+import 'package:lovenest_valley/screens/daily_mood_prompt_screen.dart';
+import 'package:lovenest_valley/screens/shop_screen.dart';
+import 'package:lovenest_valley/screens/stardew_dialogue_box.dart';
+import 'package:lovenest_valley/screens/link_partner_screen.dart';
+import 'package:lovenest_valley/screens/audio_record_dialog.dart';
+import 'package:lovenest_valley/screens/onboarding_screen.dart';
+import 'package:lovenest_valley/components/ui/chest_storage_ui.dart';
+import 'package:lovenest_valley/services/pending_gift_service.dart';
+import 'package:lovenest_valley/screens/widgets/gifts_inbox_dialog.dart';
 import '../models/chest_storage.dart';
 import '../utils/seed_color_generator.dart';
-import 'package:lovenest/widgets/coin_indicator.dart';
-import 'package:lovenest/services/inventory_service.dart';
-import 'package:lovenest/services/daily_question_seed_service.dart';
+import 'package:lovenest_valley/widgets/coin_indicator.dart';
+import 'package:lovenest_valley/services/inventory_service.dart';
+import 'package:lovenest_valley/services/daily_question_seed_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:lovenest/screens/feature_tour_overlay.dart';
-import 'package:lovenest/screens/memory_garden/planting_sheet.dart';
-import 'package:lovenest/models/relationship_goal.dart';
-import 'package:lovenest/screens/relationship_goals_dialog.dart';
-import 'package:lovenest/services/relationship_goal_service.dart';
-import 'package:lovenest/components/ui/seed_sprite_preview.dart';
-import 'package:lovenest/screens/map_test_screen.dart';
+import 'package:lovenest_valley/screens/feature_tour_overlay.dart';
+import 'package:lovenest_valley/screens/memory_garden/planting_sheet.dart';
+import 'package:lovenest_valley/models/relationship_goal.dart';
+import 'package:lovenest_valley/screens/relationship_goals_dialog.dart';
+import 'package:lovenest_valley/services/relationship_goal_service.dart';
+import 'package:lovenest_valley/components/ui/seed_sprite_preview.dart';
+
 
 class GameScreen extends StatefulWidget {
   final String farmId;
@@ -118,6 +118,9 @@ class _GameScreenState extends State<GameScreen> {
       },
     );
 
+    // Initialize inventory from backend (FIXED: was missing this call)
+    _initializeInventory();
+    
     // Game now handles starter items for new users
     _checkForUnplantedDailyQuestionSeed();
     _checkAndPromptCouple();
@@ -125,6 +128,13 @@ class _GameScreenState extends State<GameScreen> {
     _checkPendingGiftDeliveries();
     _maybeStartFeatureTour();
     _checkAndPromptName();
+  }
+
+  /// Initialize inventory from backend (FIXED: was missing this method)
+  Future<void> _initializeInventory() async {
+    debugPrint('[GameScreen] 🔄 Initializing inventory from backend');
+    await inventoryManager.initialize();
+    debugPrint('[GameScreen] 📊 Inventory after backend load: ${inventoryManager.slots.map((item) => item?.name ?? 'null').toList()}');
   }
 
   Future<void> _maybeStartFeatureTour() async {
@@ -527,9 +537,10 @@ class _GameScreenState extends State<GameScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Settings'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             ListTile(
               leading: const Icon(Icons.school),
               title: const Text('Onboarding'),
@@ -551,22 +562,7 @@ class _GameScreenState extends State<GameScreen> {
                 });
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.volume_up),
-              title: const Text('Sound Settings'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _showSoundSettings();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.brightness_6),
-              title: const Text('Graphics Settings'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _showGraphicsSettings();
-              },
-            ),
+
             ListTile(
               leading: const Icon(Icons.person),
               title: const Text('Set Name'),
@@ -590,6 +586,65 @@ class _GameScreenState extends State<GameScreen> {
                 }
               },
             ),
+            // Partner information section
+            if (_hasCouple) ...[
+              FutureBuilder<Map<String, dynamic>?>(
+                future: GardenRepository().getPartnerProfile(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const ListTile(
+                      leading: Icon(Icons.favorite, color: Colors.pink),
+                      title: Text('Partner'),
+                      subtitle: Text('Loading...'),
+                    );
+                  }
+                  
+                  final partnerProfile = snapshot.data;
+                  if (partnerProfile != null) {
+                    final partnerName = partnerProfile['username'] as String? ?? 'Unknown';
+                    final partnerAvatar = partnerProfile['avatar_url'] as String?;
+                    final partnerCreatedAt = partnerProfile['created_at'] as String?;
+                    
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.pink.shade100,
+                        child: partnerAvatar != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  partnerAvatar,
+                                  width: 32,
+                                  height: 32,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(Icons.favorite, color: Colors.pink),
+                                ),
+                              )
+                            : const Icon(Icons.favorite, color: Colors.pink),
+                      ),
+                      title: Text('Partner: $partnerName'),
+                      subtitle: partnerCreatedAt != null
+                          ? Text('Connected since ${_formatDate(partnerCreatedAt)}')
+                          : const Text('Connected'),
+                      onTap: () {
+                        // Could show more partner details here
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Partner: $partnerName'),
+                            backgroundColor: Colors.pink.shade100,
+                          ),
+                        );
+                      },
+                    );
+                  } else {
+                    return const ListTile(
+                      leading: Icon(Icons.favorite, color: Colors.pink),
+                      title: Text('Partner'),
+                      subtitle: Text('Unable to load partner info'),
+                    );
+                  }
+                },
+              ),
+            ],
             ListTile(
               leading: const Icon(Icons.info),
               title: const Text('About'),
@@ -598,21 +653,7 @@ class _GameScreenState extends State<GameScreen> {
                 _showAboutDialog();
               },
             ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.map, color: Colors.blue),
-              title: const Text('Map Test Screen', style: TextStyle(color: Colors.blue)),
-              subtitle: const Text('Test map loading from valley.tmx'),
-              onTap: () {
-                Navigator.of(context).pop();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const MapTestScreen(),
-                  ),
-                );
-              },
-            ),
-            const Divider(),
+
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
               title: const Text('Logout', style: TextStyle(color: Colors.red)),
@@ -621,17 +662,8 @@ class _GameScreenState extends State<GameScreen> {
                 _showLogoutConfirmation();
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.clear_all, color: Colors.orange),
-              title: const Text('Clear All Auth Data', style: TextStyle(color: Colors.orange)),
-              subtitle: const Text('For testing - clears local session'),
-              onTap: () async {
-                Navigator.of(context).pop();
-                await _clearAllAuthData();
-              },
-            ),
           ],
-        ),
+        )),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -642,46 +674,28 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  void _showSoundSettings() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sound Settings'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Sound settings coming soon!'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showGraphicsSettings() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Graphics Settings'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Graphics settings coming soon!'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+  /// Format date string for display
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+      
+      if (difference.inDays == 0) {
+        return 'Today';
+      } else if (difference.inDays == 1) {
+        return 'Yesterday';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays} days ago';
+      } else if (difference.inDays < 30) {
+        final weeks = (difference.inDays / 7).floor();
+        return '$weeks week${weeks == 1 ? '' : 's'} ago';
+      } else {
+        return '${date.day}/${date.month}/${date.year}';
+      }
+    } catch (e) {
+      return 'Recently';
+    }
   }
 
   void _showAboutDialog() {
@@ -750,33 +764,7 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
   
-  Future<void> _clearAllAuthData() async {
-    try {
-      await SupabaseConfig.clearAllLocalData();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('All local data cleared. App will restart fresh.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        // Navigate back to auth flow
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/',
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error clearing local data: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
+
 
   void _showOnboarding() {
     Navigator.of(context).push(
@@ -926,6 +914,8 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
+    _chestOverlay?.remove();
+    _chestOverlay = null;
     inventoryManager.dispose();
     super.dispose();
   }
@@ -1219,21 +1209,13 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  OverlayEntry? _chestOverlay;
+
   void _handleExamine(String examineText, [ChestStorage? chestStorage]) {
     print('onExamine called with: ' + examineText);
     Future.delayed(Duration.zero, () {
       if (chestStorage != null) {
-        showDialog(
-          context: context,
-          builder: (context) => Dialog(
-            backgroundColor: Colors.transparent,
-            child: ChestStorageUI(
-              chest: chestStorage,
-              inventoryManager: inventoryManager,
-              onClose: () => Navigator.of(context).pop(),
-            ),
-          ),
-        );
+        _showChestOverlay(chestStorage);
       } else {
         showDialog(
           context: context,
@@ -1241,6 +1223,34 @@ class _GameScreenState extends State<GameScreen> {
         );
       }
     });
+  }
+
+  void _showChestOverlay(ChestStorage chest) {
+    _chestOverlay?.remove();
+    _chestOverlay = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          // Only the chest panel should capture taps; outside taps go through to the game/inventory
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Material(
+              type: MaterialType.transparency,
+              child: ChestStorageUI(
+                chest: chest,
+                inventoryManager: inventoryManager,
+                onClose: () {
+                  _chestOverlay?.remove();
+                  _chestOverlay = null;
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    Overlay.of(context, rootOverlay: true).insert(_chestOverlay!);
   }
 
   @override
@@ -1285,41 +1295,43 @@ class _GameScreenState extends State<GameScreen> {
               GameWidget<FarmhouseInteriorGame>.controlled(
                 gameFactory: () => _interiorGameInstance,
               ),
-            // Coin indicator (top-right)
-            const Positioned(
-              top: 12,
-              right: 12,
-              child: CoinIndicator(),
-            ),
-          
-          // Settings button overlay
-          Positioned(
-            top: 40,
-            left: 16,
-            child: SafeArea(
-              child: IconButton(
-                onPressed: () {
-                  _showSettingsDialog();
-                },
-                icon: const Icon(
-                  Icons.settings,
-                  color: Colors.white,
-                  size: 28,
-                ),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.black54,
-                  shape: const CircleBorder(),
-                  padding: const EdgeInsets.all(8),
-                ),
-              ),
-            ),
-          ),
-          
-          // Weather display removed
-          // Right side buttons
-          Positioned(
-            top: 40,
-            right: 16,
+                         // Coin indicator (top-right)
+             const Positioned(
+               top: 12,
+               right: 12,
+               child: CoinIndicator(),
+             ),
+           
+           // Settings button overlay
+           Positioned(
+             top: 40,
+             left: 16,
+             child: SafeArea(
+               child: IconButton(
+                 onPressed: () {
+                   _showSettingsDialog();
+                 },
+                                   icon: const Text(
+                    '⚙️',
+                    style: TextStyle(
+                      fontSize: 28,
+                      color: Colors.white,
+                    ),
+                  ),
+                 style: IconButton.styleFrom(
+                   backgroundColor: Colors.black54,
+                   shape: const CircleBorder(),
+                   padding: const EdgeInsets.all(8),
+                 ),
+               ),
+             ),
+           ),
+           
+           // Weather display removed
+           // Right side buttons
+           Positioned(
+             top: 60,
+             right: 16,
             child: SafeArea(
               child: Column(
                 children: [
@@ -1338,11 +1350,13 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                       );
                     },
-                    icon: const Icon(
-                      Icons.shopping_bag,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+                                         icon: const Text(
+                       '🛍️',
+                       style: TextStyle(
+                         fontSize: 24,
+                         color: Colors.white,
+                       ),
+                     ),
                     tooltip: 'Shop',
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.orange.shade600,
@@ -1351,6 +1365,55 @@ class _GameScreenState extends State<GameScreen> {
                     ),
                   ),
 
+                  const SizedBox(height: 12),
+
+                  // Mic button
+                  IconButton(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AudioRecordDialog(
+                          onUploadComplete: (audioUrl) {
+                            print('Audio uploaded: $audioUrl');
+                            // The seashell will be automatically loaded from the database
+                            // when the game starts or when the user refreshes the game
+                          },
+                        ),
+                      );
+                    },
+                                         icon: const Stack(
+                       alignment: Alignment.center,
+                       children: [
+                         Text(
+                           '🎤',
+                           style: TextStyle(
+                             fontSize: 20,
+                             color: Colors.white,
+                           ),
+                         ),
+                         Positioned(
+                           right: -2,
+                           bottom: -2,
+                           child: Text(
+                             '➕',
+                             style: TextStyle(
+                               fontSize: 12,
+                               color: Colors.white,
+                             ),
+                           ),
+                         ),
+                       ],
+                     ),
+                    tooltip: 'Record Audio Message',
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.blue.shade600,
+                      shape: const CircleBorder(),
+                      padding: const EdgeInsets.all(8),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
                   // Gifts Inbox button (shows only if gifts available)
                   FutureBuilder<List<Map<String, dynamic>>>(
                     future: PendingGiftService.fetchCollectibleGifts(),
@@ -1358,110 +1421,98 @@ class _GameScreenState extends State<GameScreen> {
                       final count = snapshot.data?.length ?? 0;
                       if (count == 0) return const SizedBox.shrink();
                       final badgeText = count > 9 ? '9+' : '$count';
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            IconButton(
-                              onPressed: () async {
-                                await showDialog(
-                                  context: context,
-                              builder: (context) => GiftsInboxDialog(
-                                inventoryManager: inventoryManager,
-                                parentContext: context,
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          IconButton(
+                            onPressed: () async {
+                              await showDialog(
+                                context: context,
+                            builder: (context) => GiftsInboxDialog(
+                              inventoryManager: inventoryManager,
+                              parentContext: context,
+                            ),
+                              );
+                              setState(() {}); // refresh buttons
+                            },
+                                                         icon: const Text(
+                               '🎁',
+                               style: TextStyle(
+                                 fontSize: 24,
+                                 color: Colors.white,
+                               ),
+                             ),
+                            tooltip: 'Gifts Received',
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.purple,
+                              shape: const CircleBorder(),
+                              padding: const EdgeInsets.all(8),
+                            ),
+                          ),
+                          Positioned(
+                            right: -2,
+                            top: -2,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white, width: 1),
                               ),
-                                );
-                                setState(() {}); // refresh buttons
-                              },
-                              icon: const Icon(
-                                Icons.card_giftcard,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                              tooltip: 'Gifts Received',
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.purple,
-                                shape: const CircleBorder(),
-                                padding: const EdgeInsets.all(8),
+                              child: Text(
+                                badgeText,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                            Positioned(
-                              right: -2,
-                              top: -2,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.white, width: 1),
-                                ),
-                                child: Text(
-                                  badgeText,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       );
                     },
                   ),
 
-                  // Invite Partner button (if no couple) -> opens new LinkPartnerScreen
-                  if (!_hasCouple)
-                    IconButton(
-                      onPressed: () async {
-                        if (!mounted) return;
-                        await Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const LinkPartnerScreen()),
-                        );
-                        // Re-check couple status when returning
-                        final after = await GardenRepository().getUserCouple();
-                        if (mounted) {
-                          setState(() {
-                            _hasCouple = after != null;
-                          });
-                        }
-                      },
-                      icon: const Icon(
-                        Icons.person_add_alt_1,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                      tooltip: 'Invite Partner',
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.pinkAccent,
-                        shape: const CircleBorder(),
-                        padding: const EdgeInsets.all(8),
-                      ),
-                    ),
-                  
-                  const SizedBox(height: 8),
-                  
-                  // Rain toggle button
-                  IconButton(
-                    onPressed: () {
-                      setState(() {
-                        _rainIntensity = _rainIntensity > 0.0 ? 0.0 : 1.0;
-                      });
+                  // Add spacing after Gifts Inbox button (only if it's shown)
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: PendingGiftService.fetchCollectibleGifts(),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data?.length ?? 0;
+                      if (count == 0) return const SizedBox.shrink();
+                      return const SizedBox(height: 12);
                     },
-                    icon: Icon(
-                      _rainIntensity > 0.0 ? Icons.water_drop : Icons.water_drop_outlined,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    tooltip: 'Toggle Rain',
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.blue.shade600,
-                      shape: const CircleBorder(),
-                      padding: const EdgeInsets.all(8),
-                    ),
                   ),
+
+                                     // Invite Partner button (if no couple) -> opens new LinkPartnerScreen
+                   if (!_hasCouple) ...[
+                     IconButton(
+                       onPressed: () async {
+                         if (!mounted) return;
+                         await Navigator.of(context).push(
+                           MaterialPageRoute(builder: (_) => const LinkPartnerScreen()),
+                         );
+                         // Re-check couple status when returning
+                         final after = await GardenRepository().getUserCouple();
+                         if (mounted) {
+                           setState(() {
+                             _hasCouple = after != null;
+                           });
+                         }
+                       },
+                                               icon: const Icon(
+                          Icons.person_add_alt_1,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                       tooltip: 'Invite Partner',
+                       style: IconButton.styleFrom(
+                         backgroundColor: Colors.pinkAccent,
+                         shape: const CircleBorder(),
+                         padding: const EdgeInsets.all(8),
+                       ),
+                     ),
+                   ],
 
                 ],
               ),
@@ -1515,22 +1566,7 @@ class _GameScreenState extends State<GameScreen> {
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => AudioRecordDialog(
-              onUploadComplete: (audioUrl) {
-                print('Audio uploaded: $audioUrl');
-                // The seashell will be automatically loaded from the database
-                // when the game starts or when the user refreshes the game
-              },
-            ),
-          );
-        },
-        child: const Icon(Icons.mic),
-        tooltip: 'Record Audio Message',
-      ),
+
     );
   }
 

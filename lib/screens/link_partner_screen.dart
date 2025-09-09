@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lovenest/config/supabase_config.dart';
-import 'package:lovenest/services/farm_repository.dart';
-import 'package:lovenest/services/couple_link_service.dart';
-import 'package:lovenest/main.dart' show FarmLoader; // navigate to loader on success
+import 'package:share_plus/share_plus.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/services/farm_repository.dart';
+import 'package:lovenest_valley/services/couple_link_service.dart';
+import 'package:lovenest_valley/main.dart' show FarmLoader; // navigate to loader on success
 
 class LinkPartnerScreen extends StatefulWidget {
   final String? prefillCode;
@@ -14,9 +15,7 @@ class LinkPartnerScreen extends StatefulWidget {
   State<LinkPartnerScreen> createState() => _LinkPartnerScreenState();
 }
 
-class _LinkPartnerScreenState extends State<LinkPartnerScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+class _LinkPartnerScreenState extends State<LinkPartnerScreen> {
   final _codeController = TextEditingController();
   final _service = CoupleLinkService();
   Map<String, dynamic>? _activeInvite; // inviter's invite data
@@ -28,19 +27,22 @@ class _LinkPartnerScreenState extends State<LinkPartnerScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     if (widget.prefillCode != null && widget.prefillCode!.isNotEmpty) {
       _codeController.text = widget.prefillCode!;
       _lookupInvite(widget.prefillCode!);
-      _tabController.index = 1;
     }
     _startCouplePoll();
+    
+    // Automatically generate an invite code when the page loads
+    // so users immediately see a code they can share with their partner
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _generateInvite();
+    });
   }
 
   @override
   void dispose() {
     _codeController.dispose();
-    _tabController.dispose();
     _pollTimer?.cancel();
     super.dispose();
   }
@@ -90,7 +92,7 @@ class _LinkPartnerScreenState extends State<LinkPartnerScreen>
 
   Future<void> _accept() async {
     final code = _codeController.text.trim();
-    if (code.length < 6) return _showSnack('Enter a valid code');
+    if (code.length != 6) return _showSnack('Enter a valid 6-digit code');
     setState(() => _redeeming = true);
     try {
       final coupleId = await _service.redeem(code);
@@ -148,7 +150,7 @@ class _LinkPartnerScreenState extends State<LinkPartnerScreen>
     if (msg.contains('already linked')) return 'You are already linked to a partner';
     if (msg.contains('own invite')) return 'You cannot accept your own invite';
     return 'Something went wrong';
-    }
+  }
 
   void _showSnack(String msg) {
     if (!mounted) return;
@@ -187,44 +189,10 @@ class _LinkPartnerScreenState extends State<LinkPartnerScreen>
             ),
           ),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(44),
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFFFC0CB),
-                  Color(0xFFFFB6C1),
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
-              ],
-            ),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5, fontFamily: 'monospace'),
-              indicator: BoxDecoration(
-                color: const Color(0xFFE91E63).withOpacity(0.9),
-                borderRadius: BorderRadius.zero,
-                border: const Border(
-                  top: BorderSide(color: Color(0xFFAD1457), width: 2),
-                  bottom: BorderSide(color: Color(0xFFAD1457), width: 2),
-                ),
-              ),
-              tabs: const [
-                Tab(text: 'Invite partner'),
-                Tab(text: 'Have a code?'),
-              ],
-            ),
-          ),
-        ),
       ),
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -237,42 +205,257 @@ class _LinkPartnerScreenState extends State<LinkPartnerScreen>
         ),
         child: Stack(
           children: [
-            // subtle vignette
-            IgnorePointer(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.black.withOpacity(0.08), Colors.transparent, Colors.black.withOpacity(0.08)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
+            SingleChildScrollView(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).padding.bottom + 20, // Account for safe area bottom
+              ),
+              child: Column(
+                children: [
+                  // Top Section: Invite your partner
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF3E5F5), // Light purple
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Invite your partner',
+                          style: TextStyle(
+                            color: const Color(0xFF6A1B9A), // Dark purple
+                            fontWeight: FontWeight.w600,
+                            fontSize: 20,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Text(
+                              'Your code:',
+                              style: TextStyle(
+                                color: const Color(0xFF424242), // Dark grey
+                                fontSize: 16,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () async {
+                                  if (_activeInvite?['invite_code'] != null) {
+                                    final code = _activeInvite!['invite_code'] as String;
+                                    await Clipboard.setData(ClipboardData(text: code));
+                                    _showSnack('Code copied to clipboard!');
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE1BEE7), // Light purple
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF9C27B0), width: 1),
+                                  ),
+                                  child: Text(
+                                    'Tap to copy',
+                                    style: TextStyle(
+                                      color: const Color(0xFF6A1B9A), // Dark purple
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      fontFamily: 'monospace',
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (_activeInvite?['invite_code'] != null) ...[
+                          _buildCodeDisplay(_activeInvite!['invite_code'] as String),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                final code = _activeInvite!['invite_code'] as String;
+                                // final link = 'https://lovenest.app/invite?code=$code';
+                                final shareText = 'Join me in Lovenest Valley! Use this invite code: $code';
+                                await Share.share(shareText, subject: 'Lovenest Valley Invite');
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF9C27B0), // Vibrant purple
+                                foregroundColor: Colors.white,
+                                elevation: 4,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                'Share Invite',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ] else ...[
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8F9FA),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFE0E0E0), width: 1),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF9C27B0)),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Generating your invite code...',
+                                  style: TextStyle(
+                                    color: const Color(0xFF666666),
+                                    fontSize: 16,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
+                  
+                  const SizedBox(height: 50), // Space for the "or" button
+                  
+                  // Bottom Section: Enter partner's code
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFCE4EC), // Light pink
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Enter partner\'s code',
+                          style: TextStyle(
+                            color: const Color(0xFFC2185B), // Dark pink
+                            fontWeight: FontWeight.w600,
+                            fontSize: 20,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Partner\'s 6-digit code',
+                          style: TextStyle(
+                            color: const Color(0xFF424242), // Dark grey
+                            fontSize: 16,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildCodeInput(),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: _redeeming ? null : _accept,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF9C27B0), // Purple
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: const BorderSide(color: Color(0xFFE1BEE7), width: 2),
+                              ),
+                            ),
+                            child: _redeeming
+                                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Text(
+                                    'Accept Partner\'s Code',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
+            
+            // Centered "or" button positioned between the two sections
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: Center(
                 child: Container(
-                  margin: const EdgeInsets.all(16),
+                  width: 50,
+                  height: 50,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black26, blurRadius: 12, offset: Offset(0, 6)),
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFE0E0E0), width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
                     ],
-                    border: Border.all(color: const Color(0xFFE91E63), width: 2),
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      color: Colors.white.withOpacity(0.85),
-                      child: TabBarView(
-                        controller: _tabController,
-                        children: [
-                          _buildInviteTab(),
-                          _buildCodeTab(),
-                        ],
+                  child: Center(
+                    child: Text(
+                      'or',
+                      style: TextStyle(
+                        color: const Color(0xFF424242), // Dark grey
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
                       ),
                     ),
                   ),
@@ -285,228 +468,175 @@ class _LinkPartnerScreenState extends State<LinkPartnerScreen>
     );
   }
 
-  Widget _buildInviteTab() {
-    final inviteCode = _activeInvite?['invite_code'] as String?;
-    final expiresAt = _activeInvite?['expires_at']?.toString();
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Generate a code and share with your partner',
-            style: TextStyle(
-              color: const Color(0xFFE91E63),
-              fontWeight: FontWeight.w700,
-              fontSize: 18,
-              fontFamily: 'monospace',
-              shadows: const [Shadow(offset: Offset(0, 1), color: Colors.black26)],
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (inviteCode == null) ...[
-            SizedBox(
-              width: 220,
-              height: 44,
-              child: ElevatedButton(
-                onPressed: _creating ? null : _generateInvite,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE91E63),
-                  foregroundColor: Colors.white,
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: const BorderSide(color: Color(0xFFAD1457), width: 2),
-                  ),
-                ),
-                child: _creating
-                    ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Generate Invite'),
-              ),
-            ),
-          ] else ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.9),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE91E63), width: 2),
-              ),
-              child: Row(
-                children: [
-                  const Text('Code:', style: TextStyle(color: Color(0xFF4A4A4A), fontWeight: FontWeight.bold, fontFamily: 'monospace')),
-                  const SizedBox(width: 8),
-                  SelectableText(
-                    inviteCode,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF4A4A4A), fontFamily: 'monospace'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            const SizedBox(height: 4),
-            Text(
-              'Expires: ${expiresAt ?? ''}',
-              style: const TextStyle(color: Color(0xFF4A4A4A), fontFamily: 'monospace'),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                SizedBox(
-                  height: 40,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final link = 'https://lovenest.app/invite?code=$inviteCode';
-                      await Clipboard.setData(ClipboardData(text: '$link\nCode: $inviteCode'));
-                      _showSnack('Invite link copied');
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF64DD17),
-                      foregroundColor: const Color(0xFF1B5E20),
-                      elevation: 3,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: const BorderSide(color: Color(0xFF2E7D32), width: 2),
-                      ),
-                    ),
-                    child: const Text('Share Link'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  height: 40,
-                  child: TextButton(
-                    onPressed: _cancelInvite,
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: const Color(0xFFE57373),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        side: const BorderSide(color: Color(0xFFC62828), width: 2),
-                      ),
-                    ),
-                    child: const Text('Cancel Invite'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-          const Spacer(),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: _unlink,
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: const Color(0xFF90A4AE),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: const BorderSide(color: Color(0xFF546E7A), width: 2),
-                ),
-              ),
-              child: const Text('Unlink current partner'),
-            ),
-          ),
-        ],
-      ),
+  Widget _buildCodeDisplay(String code) {
+    // For 6-digit codes, we don't need hyphens - just display each digit
+    final List<String> codeParts = code.split('');
+    
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate box size based on available width
+        final availableWidth = constraints.maxWidth;
+        final totalBoxes = codeParts.length; // Should be 6
+        final totalMargins = (totalBoxes - 1) * 1; // Minimal 1px margin between boxes
+        
+        // Ensure we don't exceed available width
+        final maxBoxWidth = (availableWidth - totalMargins) / totalBoxes;
+        
+        // Use much smaller minimum size to fit within container
+        final boxWidth = maxBoxWidth.clamp(12.0, 35.0); // Much smaller min and max
+        final boxHeight = boxWidth * 1.2; // Slightly reduced aspect ratio
+        
+        // Use minimal margins to prevent overflow
+        final actualMargin = boxWidth < 25 ? (boxWidth < 18 ? 0.0 : 0.5) : 2.0;
+        
+                          return Container(
+           width: double.infinity,
+           child: Row(
+             mainAxisAlignment: MainAxisAlignment.center,
+             mainAxisSize: MainAxisSize.min, // Don't expand beyond content
+             children: codeParts.map((part) {
+               return Container(
+                 margin: EdgeInsets.symmetric(horizontal: actualMargin),
+                 width: boxWidth,
+                 height: boxHeight,
+                 decoration: BoxDecoration(
+                   color: Colors.white,
+                   borderRadius: BorderRadius.circular(8),
+                   border: Border.all(color: const Color(0xFFE1BEE7), width: 2),
+                   boxShadow: [
+                     BoxShadow(
+                       color: Colors.black.withOpacity(0.1),
+                       blurRadius: 2,
+                       offset: const Offset(0, 1),
+                     ),
+                   ],
+                 ),
+                 child: Center(
+                   child: Text(
+                     part,
+                     style: TextStyle(
+                       fontSize: (boxWidth * 0.45).clamp(10.0, 20.0), // Smaller font size for smaller boxes
+                       fontWeight: FontWeight.w900,
+                       color: const Color(0xFF9C27B0),
+                       fontFamily: 'monospace',
+                     ),
+                     textAlign: TextAlign.center,
+                   ),
+                 ),
+               );
+             }).toList(),
+           ),
+         );
+      },
     );
   }
 
-  Widget _buildCodeTab() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Enter the invite code you received',
-            style: TextStyle(
-              color: const Color(0xFFE91E63),
-              fontWeight: FontWeight.w700,
-              fontSize: 18,
-              fontFamily: 'monospace',
-              shadows: const [Shadow(offset: Offset(0, 1), color: Colors.black26)],
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _codeController,
-            textCapitalization: TextCapitalization.characters,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
-              LengthLimitingTextInputFormatter(8),
-            ],
-            decoration: InputDecoration(
-              labelText: 'Invite code',
-              hintText: 'ABCDEFGH',
-              labelStyle: const TextStyle(color: Color(0xFF4A4A4A), fontFamily: 'monospace'),
-              hintStyle: const TextStyle(color: Color(0xFF9E9E9E), fontFamily: 'monospace'),
-              filled: true,
-              fillColor: Colors.white.withOpacity(0.95),
-              enabledBorder: OutlineInputBorder(
+  Widget _buildCodeInput() {
+    // Create individual input boxes for 6-digit codes
+    final int maxLength = 6;
+    
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calculate box size based on available width
+        final availableWidth = constraints.maxWidth;
+        final totalBoxes = maxLength; // 6 digits
+        final totalMargins = (totalBoxes - 1) * 1; // Minimal 1px margin between boxes
+        
+        // Ensure we don't exceed available width
+        final maxBoxWidth = (availableWidth - totalMargins) / totalBoxes;
+        
+        // Use much smaller minimum size to fit within container
+        final boxWidth = maxBoxWidth.clamp(12.0, 35.0); // Much smaller min and max
+        final boxHeight = boxWidth * 1.2; // Slightly reduced aspect ratio
+        
+        // Use minimal margins to prevent overflow
+        final actualMargin = boxWidth < 25 ? (boxWidth < 18 ? 0.0 : 0.5) : 2.0;
+        
+        final List<Widget> inputBoxes = [];
+        
+        for (int i = 0; i < maxLength; i++) {
+          inputBoxes.add(
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: actualMargin),
+              width: boxWidth,
+              height: boxHeight,
+              decoration: BoxDecoration(
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFE91E63), width: 2),
+                border: Border.all(color: const Color(0xFFF8BBD9), width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 2,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFAD1457), width: 2),
-              ),
+                             child: Center(
+                 child: Text(
+                   _codeController.text.length > i ? _codeController.text[i] : '',
+                   style: TextStyle(
+                     fontSize: (boxWidth * 0.45).clamp(10.0, 20.0), // Smaller font size for smaller boxes
+                     fontWeight: FontWeight.w900,
+                     color: const Color(0xFFC2185B),
+                     fontFamily: 'monospace',
+                   ),
+                   textAlign: TextAlign.center,
+                 ),
+               ),
             ),
-            onChanged: (v) {
-              final upper = v.toUpperCase();
-              if (v != upper) {
-                _codeController.value = _codeController.value.copyWith(
-                  text: upper,
-                  selection: TextSelection.collapsed(offset: upper.length),
-                );
-              }
-            },
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              SizedBox(
-                height: 44,
-                child: ElevatedButton(
-                  onPressed: _redeeming ? null : _accept,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF64DD17),
-                    foregroundColor: const Color(0xFF1B5E20),
-                    elevation: 3,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Color(0xFF2E7D32), width: 2),
-                    ),
-                  ),
-                  child: _redeeming
-                      ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Accept'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                height: 44,
-                child: TextButton(
-                  onPressed: _decline,
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: const Color(0xFFE57373),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Color(0xFFC62828), width: 2),
-                    ),
-                  ),
-                  child: const Text('Decline'),
-                ),
-              ),
-            ],
-          ),
-          if (_loadingInvite) ...[
-            const SizedBox(height: 16),
-            const LinearProgressIndicator(),
-          ],
-        ],
-      ),
+          );
+        }
+        
+                          return Stack(
+           children: [
+             Column(
+               children: [
+                 Container(
+                   width: double.infinity,
+                   child: Row(
+                     mainAxisAlignment: MainAxisAlignment.center,
+                     mainAxisSize: MainAxisSize.min, // Don't expand beyond content
+                     children: inputBoxes,
+                   ),
+                 ),
+                 const SizedBox(height: 12),
+               ],
+             ),
+             // Hidden text field for actual input - positioned over the visual boxes
+             Positioned.fill(
+               child: TextField(
+                 controller: _codeController,
+                 textCapitalization: TextCapitalization.characters,
+                 inputFormatters: [
+                   FilteringTextInputFormatter.allow(RegExp(r'[0-9]')), // Only allow digits for 6-digit codes
+                   LengthLimitingTextInputFormatter(maxLength),
+                 ],
+                 onChanged: (v) {
+                   // Ensure only digits are entered
+                   final digitsOnly = v.replaceAll(RegExp(r'[^0-9]'), '');
+                   if (v != digitsOnly) {
+                     _codeController.value = _codeController.value.copyWith(
+                       text: digitsOnly,
+                       selection: TextSelection.collapsed(offset: digitsOnly.length),
+                     );
+                   }
+                   setState(() {}); // Rebuild to show characters in boxes
+                 },
+                 decoration: const InputDecoration(
+                   border: InputBorder.none,
+                   counterText: '', // Hide character counter
+                 ),
+                 style: const TextStyle(
+                   color: Colors.transparent, // Make text invisible
+                   fontSize: 1, // Minimal size
+                 ),
+                 cursorColor: Colors.transparent, // Hide cursor
+               ),
+             ),
+           ],
+         );
+      },
     );
   }
 }

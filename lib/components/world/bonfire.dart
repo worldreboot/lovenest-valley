@@ -2,7 +2,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/timer.dart';
 import 'package:flutter/material.dart';
-import 'package:lovenest/components/world/fire_effect.dart';
+import 'package:lovenest_valley/components/world/fire_effect.dart';
 import 'package:flame/collisions.dart';
 
 class Bonfire extends PositionComponent with TapCallbacks {
@@ -29,7 +29,7 @@ class Bonfire extends PositionComponent with TapCallbacks {
     required this.woodBurnRate,
     required this.maxFlameSize,
     required this.maxIntensity,
-  });
+  }) : super(priority: 2000); // High priority for bonfires and fire/smoke effects
 
   double get currentWood => _currentWood;
   double get intensity => _intensity;

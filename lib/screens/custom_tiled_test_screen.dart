@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
-import 'package:lovenest/game/custom_tiled_farm_game.dart';
-import 'package:lovenest/utils/tiled_parser_test.dart';
-import 'package:lovenest/services/farm_service.dart';
+import 'package:lovenest_valley/game/custom_tiled_farm_game.dart';
+import 'package:lovenest_valley/utils/tiled_parser_test.dart';
+import 'package:lovenest_valley/services/farm_service.dart';
 
 /// A test screen that demonstrates the custom Tiled parser integration
 class CustomTiledTestScreen extends StatefulWidget {

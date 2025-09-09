@@ -4,6 +4,7 @@ import '../models/chest_storage.dart';
 import '../models/memory_garden/couple.dart';
 import '../services/chest_storage_service.dart';
 import '../services/garden_repository.dart';
+import 'package:flutter/foundation.dart'; // Added for debugPrint
 
 // Service provider
 final chestStorageServiceProvider = Provider<ChestStorageService>((ref) {
@@ -67,12 +68,8 @@ final chestProvider = FutureProvider.family<ChestStorage?, String>((ref, chestId
 
 // Chest creation provider
 final createChestProvider = FutureProvider.family<ChestStorage, Map<String, dynamic>>((ref, params) async {
-  final couple = await ref.read(userCoupleProvider.future);
-  if (couple == null) throw Exception('No couple found');
-  
   final service = ref.read(chestStorageServiceProvider);
-  return await service.createChest(
-    coupleId: couple.id,
+  return await service.createChestForCurrentUser(
     position: params['position'] as Position,
     name: params['name'] as String?,
     maxCapacity: params['maxCapacity'] as int? ?? 20,
@@ -100,9 +97,6 @@ final removeItemFromChestProvider = FutureProvider.family<ChestStorage, Map<Stri
 
 // Nearby chests provider
 final nearbyChestsProvider = FutureProvider.family<List<ChestStorage>, Position>((ref, position) async {
-  final couple = await ref.read(userCoupleProvider.future);
-  if (couple == null) return [];
-  
   final service = ref.read(chestStorageServiceProvider);
   return await service.findChestsNearPosition(position);
 });
@@ -118,17 +112,24 @@ class ChestStorageNotifier extends StateNotifier<AsyncValue<List<ChestStorage>>>
   
   Future<void> _initialize() async {
     try {
-      final couple = await _ref.read(userCoupleProvider.future);
-      if (couple == null) {
-        state = const AsyncValue.data([]);
-        return;
+      // Get chests for current user (couple or individual)
+      final chests = await _service.getCurrentUserChests();
+      
+      if (chests.isNotEmpty) {
+        // Initialize realtime for the first chest's owner (couple or user)
+        final firstChest = chests.first;
+        if (firstChest.coupleId != null) {
+          await _service.initializeRealtime(firstChest.coupleId!);
+        } else if (firstChest.userId != null) {
+          // For individual users, we might not need realtime updates
+          // But we can still initialize if needed
+          debugPrint('[ChestStorageNotifier] Individual user chests loaded');
+        }
       }
       
-      await _service.initializeRealtime(couple.id);
-      final chests = await _service.getChests(couple.id);
       state = AsyncValue.data(chests);
       
-      // Listen for real-time updates
+      // Listen for real-time updates (if couple exists)
       _service.chestUpdates.listen((updatedChest) {
         state.whenData((currentChests) {
           final updatedChests = currentChests.map((chest) {
@@ -149,11 +150,7 @@ class ChestStorageNotifier extends StateNotifier<AsyncValue<List<ChestStorage>>>
     int maxCapacity = 20,
   }) async {
     try {
-      final couple = await _ref.read(userCoupleProvider.future);
-      if (couple == null) throw Exception('No couple found');
-      
-      final newChest = await _service.createChest(
-        coupleId: couple.id,
+      final newChest = await _service.createChestForCurrentUser(
         position: position,
         name: name,
         maxCapacity: maxCapacity,

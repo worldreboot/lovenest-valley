@@ -56,8 +56,8 @@ class _ChestStorageUIState extends State<ChestStorageUI> {
 
   Future<void> _subscribeToChestUpdates() async {
     try {
-      // Initialize realtime for this couple if not already initialized
-      await _chestService.initializeRealtime(_currentChest.coupleId);
+      // Initialize realtime for current user (couple or individual)
+      await _chestService.initializeRealtimeForCurrentUser();
       _chestSub?.cancel();
       _chestSub = _chestService.chestUpdates.listen((updated) async {
         if (!mounted) return;
@@ -69,95 +69,155 @@ class _ChestStorageUIState extends State<ChestStorageUI> {
     } catch (_) {}
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 600,
-        height: 500, // Reduced from 700 to 500
-        decoration: BoxDecoration(
-          // Brighter Stardew Valley chest appearance
-          color: const Color(0xFF8B4513), // Warmer, brighter brown base
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: const Color(0xFFD2691E), // Brighter orange-brown border
-            width: 3,
+    return Column(
+      children: [
+        // Top: Compact Chest UI
+        Container(
+          width: double.infinity,
+          height: 320, // Much smaller height
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            // Brighter Stardew Valley chest appearance
+            color: const Color(0xFF8B4513), // Warmer, brighter brown base
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: const Color(0xFFD2691E), // Brighter orange-brown border
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            // Header - Brighter Stardew Valley style
-            Container(
-              height: 60,
-              decoration: const BoxDecoration(
-                color: Color(0xFFCD853F), // Brighter medium brown header
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(5),
-                  topRight: Radius.circular(5),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // Only the close button remains
-                  Container(
-                    margin: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFDEB887), // Brighter light brown
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: const Color(0xFFD2691E),
-                        width: 1,
-                      ),
-                    ),
-                    child: IconButton(
-                      onPressed: widget.onClose,
-                      icon: const Icon(
-                        Icons.close,
-                        color: Color(0xFF2F1B14), // Darker text for contrast
-                        size: 20,
-                      ),
-                      padding: const EdgeInsets.all(4),
-                      constraints: const BoxConstraints(
-                        minWidth: 32,
-                        minHeight: 32,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Existing inventory overlay remains on the hosting screen; do not duplicate here
-            
-            // Items grid - Brighter Stardew Valley style
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5DEB3), // Much brighter wheat-colored background
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFFD2691E),
-                    width: 2,
+          child: Column(
+            children: [
+              // Header - Compact
+              Container(
+                height: 40, // Smaller header
+                decoration: const BoxDecoration(
+                  color: Color(0xFFCD853F), // Brighter medium brown header
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(6),
+                    topRight: Radius.circular(6),
                   ),
                 ),
-                child: _buildItemsGrid(),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.inventory_2,
+                        color: const Color(0xFF2F1B14),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Chest',
+                            style: TextStyle(
+                              color: const Color(0xFF2F1B14),
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            '${_currentChest.items.length}/16',
+                            style: TextStyle(
+                              color: const Color(0xFF2F1B14),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+              
+              // Items grid - Compact
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5DEB3),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: const Color(0xFFD2691E),
+                      width: 1,
+                    ),
+                  ),
+                  child: _buildItemsGrid(),
+                ),
+              ),
 
-            // No footer buttons; use tap-to-store/tap-to-withdraw
-          ],
+              // Instructions footer - Compact
+              Container(
+                height: 24,
+                margin: const EdgeInsets.all(8),
+                child: Center(
+                  child: Text(
+                    'Tap empty slots to store • Tap filled to withdraw',
+                    style: TextStyle(
+                      color: const Color(0xFF2F1B14),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              
+              // Close button at bottom right
+              Container(
+                height: 32,
+                margin: const EdgeInsets.only(right: 8, bottom: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDEB887),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: const Color(0xFFD2691E),
+                          width: 1,
+                        ),
+                      ),
+                      child: IconButton(
+                        onPressed: widget.onClose,
+                        icon: const Icon(
+                          Icons.close,
+                          color: Color(0xFF2F1B14),
+                          size: 16,
+                        ),
+                        padding: const EdgeInsets.all(2),
+                        constraints: const BoxConstraints(
+                          minWidth: 24,
+                          minHeight: 24,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+        
+
+      ],
     );
   }
+
+
 
   Widget _buildStardewButton({
     required VoidCallback? onPressed,
@@ -265,11 +325,11 @@ class _ChestStorageUIState extends State<ChestStorageUI> {
       items[i] = _currentChest.items[i];
     }
     return GridView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4, // Now 4 columns per row
-        crossAxisSpacing: 8, // More space between slots
-        mainAxisSpacing: 8,
+        crossAxisCount: 4, // 4 columns per row
+        crossAxisSpacing: 6, // Tighter spacing for smaller container
+        mainAxisSpacing: 6,
         childAspectRatio: 1,
       ),
       itemCount: totalSlots,
@@ -425,8 +485,14 @@ class _ChestStorageUIState extends State<ChestStorageUI> {
         setState(() => _currentChest = updated);
       }
 
-      // Remove one from inventory
-      inv.removeItem(inv.selectedSlotIndex);
+      // Decrement inventory selected item by 1 (FIXED: was incorrectly removing entire item)
+      if (selected.quantity > 1) {
+        await InventoryService.updateItemQuantity(selected.id, selected.quantity - 1);
+        inv.setItem(inv.selectedSlotIndex, selected.copyWith(quantity: selected.quantity - 1));
+      } else {
+        await inv.removeItem(inv.selectedSlotIndex);
+      }
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -467,77 +533,97 @@ class _ChestStorageUIState extends State<ChestStorageUI> {
         ],
       ),
       child: item != null
-          ? Stack(
-              children: [
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
+          ? ClipRect(
+              child: Stack(
+                children: [
+                                     Center(
+                     child: OverflowBox(
+                       maxWidth: 38,
+                       maxHeight: 38,
+                       child: SizedBox(
+                         width: 36,
+                         height: 36,
+                         child: Column(
+                           mainAxisAlignment: MainAxisAlignment.center,
+                           mainAxisSize: MainAxisSize.min,
+                           children: [
+                             Container(
+                               width: 24,
+                               height: 24,
+                               decoration: BoxDecoration(
+                                 color: const Color(0xFF8D6E63),
+                                 borderRadius: BorderRadius.circular(3),
+                                 border: Border.all(
+                                   color: const Color(0xFF6D4C41),
+                                   width: 1,
+                                 ),
+                               ),
+                               child: _buildChestItemIcon(item),
+                             ),
+                             const SizedBox(height: 1),
+                             Padding(
+                               padding: const EdgeInsets.symmetric(horizontal: 1),
+                               child: Text(
+                                 item.name,
+                                 style: const TextStyle(
+                                   color: Color(0xFFD7CCC8),
+                                   fontSize: 6,
+                                   fontWeight: FontWeight.w500,
+                                 ),
+                                 textAlign: TextAlign.center,
+                                 maxLines: 1,
+                                 overflow: TextOverflow.ellipsis,
+                               ),
+                             ),
+                           ],
+                         ),
+                       ),
+                     ),
+                   ),
+                  if (item.quantity > 1)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF8D6E63),
-                          borderRadius: BorderRadius.circular(4),
+                          color: const Color(0xFF1976D2),
+                          borderRadius: BorderRadius.circular(3),
                           border: Border.all(
-                            color: const Color(0xFF6D4C41),
+                            color: const Color(0xFF1565C0),
                             width: 1,
                           ),
                         ),
-                        child: _buildChestItemIcon(item),
-                      ),
-                      const SizedBox(height: 2),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
                         child: Text(
-                          item.name,
+                          '${item.quantity}',
                           style: const TextStyle(
                             color: Color(0xFFD7CCC8),
-                            fontSize: 9,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 5,
+                            fontWeight: FontWeight.bold,
                           ),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (item.quantity > 1)
-                  Positioned(
-                    top: 2,
-                    right: 2,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1976D2),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: const Color(0xFF1565C0),
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        '${item.quantity}',
-                        style: const TextStyle(
-                          color: Color(0xFFD7CCC8),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             )
-          : Center(
-              child: Opacity(
-                opacity: 0.18,
-                child: Icon(
-                  Icons.crop_square,
-                  size: 32,
-                  color: const Color(0xFFD7CCC8),
+          : ClipRect(
+              child: Center(
+                child: OverflowBox(
+                  maxWidth: 38,
+                  maxHeight: 38,
+                  child: SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Opacity(
+                      opacity: 0.18,
+                      child: Icon(
+                        Icons.crop_square,
+                        size: 24,
+                        color: const Color(0xFFD7CCC8),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -580,7 +666,7 @@ class _ChestStorageUIState extends State<ChestStorageUI> {
       return Icon(
         _getItemIcon(item.name),
         color: const Color(0xFFD7CCC8),
-        size: 20,
+        size: 16,
       );
     }
 
@@ -588,24 +674,24 @@ class _ChestStorageUIState extends State<ChestStorageUI> {
     return isNetwork
         ? Image.network(
             path,
-            width: 32,
-            height: 32,
+            width: 24,
+            height: 24,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stack) => Icon(
               _getItemIcon(item.name),
               color: const Color(0xFFD7CCC8),
-              size: 20,
+              size: 16,
             ),
           )
         : Image.asset(
             path,
-            width: 32,
-            height: 32,
+            width: 24,
+            height: 24,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stack) => Icon(
               _getItemIcon(item.name),
               color: const Color(0xFFD7CCC8),
-              size: 20,
+              size: 16,
             ),
           );
   }

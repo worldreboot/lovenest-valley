@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
-import 'package:lovenest/shaders/fire_shader.dart';
+import 'package:lovenest_valley/shaders/fire_shader.dart';
 
 class ShaderFire extends StatefulWidget {
   final double intensity;

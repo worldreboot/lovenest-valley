@@ -17,7 +17,7 @@ class OwlNpcComponent extends SpriteComponent with TapCallbacks {
     required Vector2 size,
     this.onTapOwl,
   }) : super(sprite: idleSprite, position: position, size: size) {
-    // Set a high priority so this component receives tap events before other components
+    // Initial priority; will be adjusted dynamically by Y-sort in update()
     priority = 10;
     debugPrint('[OwlNpcComponent] 🦉 Owl created at position $position with size $size and priority $priority');
   }
@@ -76,7 +76,34 @@ class OwlNpcComponent extends SpriteComponent with TapCallbacks {
   @override
   bool onTapDown(TapDownEvent event) {
     debugPrint('[OwlNpcComponent] 🦉 Owl tapped at ${event.canvasPosition}');
-    onTapOwl?.call();
+    debugPrint('[OwlNpcComponent] 🦉 Owl position: $position, size: $size');
+    debugPrint('[OwlNpcComponent] 🦉 Owl priority: $priority');
+    debugPrint('[OwlNpcComponent] 🦉 onTapOwl callback exists: ${onTapOwl != null}');
+    debugPrint('[OwlNpcComponent] 🦉 Tap event device position: ${event.devicePosition}');
+    debugPrint('[OwlNpcComponent] 🦉 Tap event canvas position: ${event.canvasPosition}');
+    
+    // Check if the tap is within the owl's bounds
+    final tapInBounds = event.canvasPosition.x >= position.x && 
+                       event.canvasPosition.x <= position.x + size.x &&
+                       event.canvasPosition.y >= position.y && 
+                       event.canvasPosition.y <= position.y + size.y;
+    debugPrint('[OwlNpcComponent] 🦉 Tap within owl bounds: $tapInBounds');
+    
+    if (onTapOwl != null) {
+      debugPrint('[OwlNpcComponent] 🦉 Calling onTapOwl callback');
+      onTapOwl?.call();
+    } else {
+      debugPrint('[OwlNpcComponent] 🦉 WARNING: onTapOwl callback is null!');
+    }
+    
     return true; // Return true to indicate we handled the tap
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    // Dynamic Y-sort: objects with greater screen Y render above
+    final baselineY = position.y + size.y;
+    priority = 1000 + baselineY.toInt();
   }
 } 

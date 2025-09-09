@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:lovenest/config/supabase_config.dart';
-import 'package:lovenest/screens/auth_flow_screen.dart';
-import 'package:lovenest/services/auth_service.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/screens/auth_flow_screen.dart';
+import 'package:lovenest_valley/services/auth_service.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 

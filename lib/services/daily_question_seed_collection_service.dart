@@ -1,5 +1,5 @@
-import 'package:lovenest/config/supabase_config.dart';
-import 'package:lovenest/models/memory_garden/question.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/models/memory_garden/question.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:realtime_client/realtime_client.dart';
 import 'package:flame/components.dart';
 import '../config/supabase_config.dart';
 import '../components/player.dart';
@@ -10,6 +9,7 @@ class FarmPlayerService {
   
   // Movement simulation data
   final Map<String, PlayerMovementData> _playerMovementData = {};
+  final Map<String, PlayerPositionData> _playerPositionData = {};
   
   // Tile size for different game types
   static const double tiledFarmTileSize = 16.0;
@@ -38,6 +38,86 @@ class FarmPlayerService {
         'sequence': _getNextSequence(),
       },
     );
+  }
+
+  // --- Continuous world-position broadcasting (for ultra-smooth movement) ---
+
+  Future<void> broadcastPlayerPosition({
+    required String farmId,
+    required String userId,
+    required double x,
+    required double y,
+    String? animationState,
+  }) async {
+    final channel = _client.channel('farm_movement_$farmId');
+    await channel.sendBroadcastMessage(
+      event: 'player_position',
+      payload: {
+        'user_id': userId,
+        'x': x,
+        'y': y,
+        'animation_state': animationState,
+        'timestamp': DateTime.now().toIso8601String(),
+        'sequence': _getNextSequence(),
+      },
+    );
+  }
+
+  Stream<PlayerPosition> subscribeToPlayerPositionBroadcast(String farmId) {
+    final channel = _client.channel('farm_movement_$farmId');
+    final controller = StreamController<PlayerPosition>(onCancel: () {
+      channel.unsubscribe();
+    });
+
+    channel.onBroadcast(
+      event: 'player_position',
+      callback: (payload, [ref]) {
+        final data = payload['payload'] as Map<String, dynamic>;
+        final pos = PlayerPosition(
+          userId: data['user_id'] as String,
+          x: (data['x'] as num).toDouble(),
+          y: (data['y'] as num).toDouble(),
+          animationState: data['animation_state'] as String?,
+          timestamp: DateTime.parse(data['timestamp'] as String),
+          sequence: data['sequence'] as int? ?? 0,
+        );
+
+        _updatePlayerPositionData(pos);
+        controller.add(pos);
+      },
+    );
+    channel.subscribe();
+    return controller.stream;
+  }
+
+  // Predict a current position using last two samples (linear extrapolation with clamp)
+  Vector2? getPredictedPosition(String userId, double nowSeconds) {
+    final list = _playerPositionData[userId]?.positions;
+    if (list == null || list.isEmpty) return null;
+    if (list.length == 1) return Vector2(list.last.x, list.last.y);
+
+    final a = list[list.length - 2];
+    final b = list[list.length - 1];
+    final ta = a.timestamp.millisecondsSinceEpoch / 1000.0;
+    final tb = b.timestamp.millisecondsSinceEpoch / 1000.0;
+    final dt = (tb - ta).clamp(0.0001, 1.0);
+    final vx = (b.x - a.x) / dt;
+    final vy = (b.y - a.y) / dt;
+    final tNow = nowSeconds;
+    final dtNow = (tNow - tb).clamp(0.0, 0.1); // cap 100ms extrapolation
+    return Vector2(
+      b.x + vx * dtNow,
+      b.y + vy * dtNow,
+    );
+  }
+
+  void _updatePlayerPositionData(PlayerPosition p) {
+    final bucket = _playerPositionData.putIfAbsent(p.userId, () => PlayerPositionData());
+    bucket.positions.add(p);
+    // Keep last N samples (20 ~ 2s at 10Hz)
+    if (bucket.positions.length > 20) {
+      bucket.positions.removeAt(0);
+    }
   }
 
   Stream<PlayerDestination> subscribeToPlayerDestinationBroadcast(String farmId) {
@@ -268,3 +348,24 @@ class PlayerMovementData {
 }
 
 // Remove this enum since it's already defined in player.dart 
+class PlayerPosition {
+  final String userId;
+  final double x;
+  final double y;
+  final String? animationState;
+  final DateTime timestamp;
+  final int sequence;
+
+  PlayerPosition({
+    required this.userId,
+    required this.x,
+    required this.y,
+    this.animationState,
+    required this.timestamp,
+    this.sequence = 0,
+  });
+}
+
+class PlayerPositionData {
+  final List<PlayerPosition> positions = [];
+}

@@ -24,7 +24,7 @@ class FireEffect extends PositionComponent {
     super.size,
     this.fireIntensity = 1.0,
     this.verticalSpeed = 0.0,
-  });
+  }) : super(priority: 2000); // High priority for fire/smoke effects to render on top
 
   @override
   Future<void> onLoad() async {

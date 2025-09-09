@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:lovenest/config/supabase_config.dart';
-import 'package:lovenest/services/currency_service.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/services/currency_service.dart';
 
 class CoinIndicator extends StatefulWidget {
   const CoinIndicator({super.key});

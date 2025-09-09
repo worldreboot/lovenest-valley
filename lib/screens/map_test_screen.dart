@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart';
-import 'package:lovenest/game/simple_enhanced_farm_game.dart';
-import 'package:lovenest/models/inventory.dart';
-import 'package:lovenest/models/chest_storage.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/game/simple_enhanced_farm_game.dart';
+import 'package:lovenest_valley/models/inventory.dart';
+import 'package:lovenest_valley/models/chest_storage.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 
 class MapTestScreen extends StatefulWidget {
   const MapTestScreen({super.key});
@@ -172,6 +172,19 @@ class _MapTestScreenState extends State<MapTestScreen> {
     }
   }
 
+  Future<void> _checkCameraBounds() async {
+    try {
+      _gameInstance.checkCameraBounds();
+      setState(() {
+        _lastSuccess = 'Camera bounds check completed - check console for details';
+      });
+    } catch (e) {
+      setState(() {
+        _lastError = 'Error checking camera bounds: $e';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -276,6 +289,20 @@ class _MapTestScreenState extends State<MapTestScreen> {
                   label: const Text('Show Layer Info'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green.shade600,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+                
+                const SizedBox(height: 12),
+                
+                // Camera bounds check button
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _checkCameraBounds,
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text('Check Camera Bounds'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple.shade600,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),

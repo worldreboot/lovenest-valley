@@ -62,7 +62,8 @@ class ChestItem {
 /// Represents a chest storage container
 class ChestStorage {
   final String id;
-  final String coupleId;
+  final String? coupleId; // Nullable - can be owned by individual user
+  final String? userId; // Nullable - can be owned by couple
   final Position position;
   final List<ChestItem> items;
   final int maxCapacity;
@@ -74,7 +75,8 @@ class ChestStorage {
 
   const ChestStorage({
     required this.id,
-    required this.coupleId,
+    this.coupleId, // Optional - for couple-owned chests
+    this.userId, // Optional - for individual user chests
     required this.position,
     required this.items,
     this.maxCapacity = 20,
@@ -83,11 +85,16 @@ class ChestStorage {
     required this.updatedAt,
     required this.version,
     required this.syncStatus,
-  });
+  }) : assert(
+    // Ensure either coupleId OR userId is set, but not both
+    (coupleId != null && userId == null) || (coupleId == null && userId != null),
+    'Chest must be owned by either a couple OR an individual user, not both'
+  );
 
   ChestStorage copyWith({
     String? id,
     String? coupleId,
+    String? userId,
     Position? position,
     List<ChestItem>? items,
     int? maxCapacity,
@@ -100,6 +107,7 @@ class ChestStorage {
     return ChestStorage(
       id: id ?? this.id,
       coupleId: coupleId ?? this.coupleId,
+      userId: userId ?? this.userId,
       position: position ?? this.position,
       items: items ?? this.items,
       maxCapacity: maxCapacity ?? this.maxCapacity,
@@ -174,6 +182,7 @@ class ChestStorage {
     return {
       'id': id,
       'couple_id': coupleId,
+      'user_id': userId,
       'type': 'chest',
       'position': '(${position.x},${position.y})',
       'properties': {
@@ -203,7 +212,8 @@ class ChestStorage {
 
     return ChestStorage(
       id: json['id'] as String,
-      coupleId: json['couple_id'] as String,
+      coupleId: json['couple_id'] as String?,
+      userId: json['user_id'] as String?,
       position: position,
       items: items,
       maxCapacity: properties['maxCapacity'] as int? ?? 20,

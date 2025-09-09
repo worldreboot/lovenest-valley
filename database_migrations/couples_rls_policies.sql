@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS couples (
     user1_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     user2_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    UNIQUE(user1_id, user2_id)
+    UNIQUE(user1_id, user2_id),
+    -- Critical constraint: Prevent users from being coupled with themselves
+    CHECK (user1_id != user2_id)
 );
 
 -- Enable RLS on couples table

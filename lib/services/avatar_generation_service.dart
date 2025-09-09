@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 
 class AvatarGenerationService {
   final SupabaseClient _supabase = SupabaseConfig.client;

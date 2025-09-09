@@ -1,8 +1,8 @@
-name: lovenest
+name: lovenest_valley
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: '>=3.5.4 <4.0.0'  # Keep your original Dart SDK requirement
@@ -30,7 +30,10 @@ dependencies:
   audioplayers: ^5.2.1
   cupertino_icons: ^1.0.8
   google_sign_in: ^6.2.1
+  sign_in_with_apple: ^6.1.0
   permission_handler: ^11.3.0
+  flutter_launcher_icons: ^0.14.4
+  share_plus: ^7.2.1
 
 dev_dependencies:
   flutter_test:
@@ -43,19 +46,58 @@ flutter:
 
   # Assets section
   assets:
+    # Main assets directory (includes all subdirectories)
     - assets/
-    - assets/images/
-    - assets/images/animations/
-    - assets/images/items/
-    - assets/images/V1.5/
+    
+    # Tiles directory (for .tmx files)
     - assets/tiles/
-    - assets/images/images/Tiles/Tile.png
-    - assets/images/images/Beach/Tiles/Tiles.png
-    - assets/images/../images/Tiles/Tile.png
-    - assets/images/../images/Beach/Tiles/Tiles.png
-    - assets/images/Tiles/Tile.png
-    - assets/images/V1.5/Farm Expansion/Crops/crops 16x16.png
-    - assets/images/Chests/1.png
+    
+    # Explicit image directories to ensure they're included
+    - assets/images/Tiles/
+    - assets/images/Beach/
+    - assets/images/Beach/Tiles/
+    - assets/images/Beach/Beach umbrella/
+    - assets/images/Beach/Chair/
+    - assets/images/Beach/Tree/
+    - assets/images/V1.1/
+    - assets/images/V1.1/Smoke/
+    - assets/images/Houses/
+    - assets/images/Houses/Farm/
+    - assets/images/Houses/Houses/
+    - assets/images/Houses/Shops/
+    - assets/images/Houses/Tents/
+    - assets/images/Houses/Well/
+    - assets/images/Trees/
+    - assets/images/Wooden/
+    - assets/images/items/
+    - assets/images/Chests/
+    - assets/images/animations/
+    
+    # Tileset files
+    - assets/ground.tsx
+    - assets/beach.tsx
+    - assets/stairs.tsx
+    - assets/houses.tsx
+    - assets/smoke.tsx
+    - assets/trees.tsx
+    - assets/wooden.tsx
+    - assets/beach_objects.tsx
+    
+    # Individual game assets
+    - assets/images/owl.png
+    - assets/images/ground.png
+    - assets/images/wood.png
+    - assets/images/user.png
+    - assets/images/seashell.png
+    - assets/images/gift_1.png
+    - assets/images/owl_noti.png
+    - assets/images/bonfire.png
+    
+    # V1.5 Assets - Farm Expansion and Water Update
+    - assets/images/V1.5/
+    - assets/images/V1.5/Farm Expansion/
+    - assets/images/V1.5/Farm Expansion/Crops/
+    - assets/images/V1.5/Water Update/
 
   # Shaders section - MUST be separate from assets
   shaders:

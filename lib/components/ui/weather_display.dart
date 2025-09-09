@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lovenest/models/mood_weather_model.dart';
+import 'package:lovenest_valley/models/mood_weather_model.dart';
 
 class WeatherDisplay extends StatelessWidget {
   final WeatherType weatherType;

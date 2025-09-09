@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:lovenest/screens/menu_screen.dart';
-import 'package:lovenest/screens/link_partner_screen.dart';
+import 'package:lovenest_valley/screens/menu_screen.dart';
+import 'package:lovenest_valley/screens/link_partner_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends StatefulWidget {

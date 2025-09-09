@@ -6,29 +6,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 // Duplicate import suppressed by lint: intentionally keep only one
-import 'package:lovenest/behaviors/camera_bounds.dart';
-import 'package:lovenest/components/player.dart';
-import 'package:lovenest/components/smooth_player.dart';
-// import 'package:lovenest/components/world/building.dart';
-import 'package:lovenest/components/world/farm_tile.dart';
-import 'package:lovenest/components/world/bonfire.dart';
-import 'package:lovenest/utils/pathfinding.dart';
-import 'package:lovenest/models/inventory.dart';
-import 'package:lovenest/game/base/game_with_grid.dart';
-import 'package:lovenest/components/owl_npc.dart';
+import 'package:lovenest_valley/behaviors/camera_bounds.dart';
+import 'package:lovenest_valley/components/player.dart';
+import 'package:lovenest_valley/components/smooth_player.dart';
+// import 'package:lovenest_valley/components/world/building.dart';
+import 'package:lovenest_valley/components/world/farm_tile.dart';
+import 'package:lovenest_valley/components/world/bonfire.dart';
+import 'package:lovenest_valley/utils/pathfinding.dart';
+import 'package:lovenest_valley/models/inventory.dart';
+import 'package:lovenest_valley/game/base/game_with_grid.dart';
+import 'package:lovenest_valley/components/owl_npc.dart';
 import 'package:flame/sprite.dart';
-import 'package:lovenest/services/question_service.dart';
-import 'package:lovenest/models/memory_garden/question.dart';
-import 'package:lovenest/services/daily_question_seed_service.dart';
-import 'package:lovenest/models/memory_garden/seed.dart';
-import 'package:lovenest/services/farm_tile_service.dart';
-import 'package:lovenest/models/farm_tile_model.dart';
-import 'package:lovenest/services/farm_player_service.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/services/question_service.dart';
+import 'package:lovenest_valley/models/memory_garden/question.dart';
+import 'package:lovenest_valley/services/daily_question_seed_service.dart';
+import 'package:lovenest_valley/models/memory_garden/seed.dart';
+import 'package:lovenest_valley/services/farm_tile_service.dart';
+import 'package:lovenest_valley/models/farm_tile_model.dart';
+import 'package:lovenest_valley/services/farm_player_service.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
 // Removed duplicate async import above
-import 'package:lovenest/components/chest_object.dart';
-import 'package:lovenest/components/world/seashell_object.dart';
-import 'package:lovenest/services/seashell_service.dart';
+import 'package:lovenest_valley/components/chest_object.dart';
+import 'package:lovenest_valley/components/world/seashell_object.dart';
+import 'package:lovenest_valley/services/seashell_service.dart';
 import '../models/chest_storage.dart';
  
 // Position class is defined in chest_storage.dart
@@ -327,7 +327,44 @@ class FarmGame extends GameWithGrid with HasCollisionDetection, HasKeyboardHandl
       onExamineRequested: onExamine,
       chestStorage: chestStorage,
     );
+    
+    print('[FarmGame] 🏗️ Test ChestObject created with onPickUp callback: ${chest.onPickUp != null}');
     world.add(chest);
+    print('[FarmGame] 🌍 Test chest added to world');
+    
+    // Set up pick-up callback after chest is added to world
+    chest.onPickUp = (chestId) async {
+      print('[FarmGame] 🎯 onPickUp callback triggered for test chest $chestId');
+      // Only pick up if adjacent (test chest is at position 10, 8)
+      if (!isTileAdjacentToPlayer(10, 8)) {
+        print('[FarmGame] ❌ Cannot pick up test chest - not adjacent to player');
+        return;
+      }
+      
+      print('[FarmGame] ✅ Player is adjacent, proceeding with test chest pickup');
+      // Add chest back to inventory WITH its storage data preserved
+      inventoryManager.addItem(InventoryItem(
+        id: 'chest',
+        name: 'Chest',
+        iconPath: 'assets/images/Chests/1.png',
+        quantity: 1,
+        chestStorage: chestStorage, // Preserve the chest storage with all its items
+      ));
+      
+      print('[FarmGame] 📦 Test chest added to inventory with ${chestStorage.items.length} items preserved');
+      
+      // Remove chest from world
+      chest.removeFromParent();
+      
+      // Remove from pathfinding grid
+      pathfindingGrid.setObstacle(10, 8, false);
+      
+      // Note: For local-only chests, we don't need to update backend
+      // The chest storage will be cleaned up when the game is disposed
+      debugPrint('[FarmGame] 📦 Chest picked up with ${chestStorage.items.length} items preserved');
+    };
+    
+    print('[FarmGame] 🔧 Test chest onPickUp callback set: ${chest.onPickUp != null}');
 
     // Initialize real-time multiplayer and tile updates
     debugPrint('[FarmGame] 🚀 Starting real-time initialization...');
@@ -824,7 +861,44 @@ class FarmGame extends GameWithGrid with HasCollisionDetection, HasKeyboardHandl
       onExamineRequested: onExamine,
       chestStorage: chestStorage,
     );
+    
+    print('[FarmGame] 🏗️ Placeable ChestObject created with onPickUp callback: ${chest.onPickUp != null}');
     world.add(chest);
+    print('[FarmGame] 🌍 Placeable chest added to world at ($gridX, $gridY)');
+    
+    // Set up pick-up callback after chest is added to world
+    chest.onPickUp = (chestId) async {
+      print('[FarmGame] 🎯 onPickUp callback triggered for placeable chest $chestId');
+      // Only pick up if adjacent
+      if (!isTileAdjacentToPlayer(gridX, gridY)) {
+        print('[FarmGame] ❌ Cannot pick up placeable chest - not adjacent to player');
+        return;
+      }
+      
+      print('[FarmGame] ✅ Player is adjacent, proceeding with placeable chest pickup');
+      // Add chest back to inventory WITH its storage data preserved
+      inventoryManager.addItem(InventoryItem(
+        id: 'chest',
+        name: 'Chest',
+        iconPath: 'assets/images/Chests/1.png',
+        quantity: 1,
+        chestStorage: chestStorage, // Preserve the chest storage with all its items
+      ));
+      
+      print('[FarmGame] 📦 Placeable chest added to inventory with ${chestStorage.items.length} items preserved');
+      
+      // Remove chest from world
+      chest.removeFromParent();
+      
+      // Remove from pathfinding grid
+      pathfindingGrid.setObstacle(gridX, gridY, false);
+      
+      // Note: For local-only chests, we don't need to update backend
+      // The chest storage will be cleaned up when the game is disposed
+      debugPrint('[FarmGame] 📦 Placeable chest picked up with ${chestStorage.items.length} items preserved');
+    };
+    
+    print('[FarmGame] 🔧 Placeable chest onPickUp callback set: ${chest.onPickUp != null}');
 
     // Register as obstacle
     pathfindingGrid.setObstacle(gridX, gridY, true);
@@ -1307,8 +1381,8 @@ class FarmGame extends GameWithGrid with HasCollisionDetection, HasKeyboardHandl
           destination.targetGridX * tileSize + tileSize / 2,
           destination.targetGridY * tileSize + tileSize / 2,
         );
-        other.opacity = 0.7; // Make other players slightly transparent
-        other.priority = 5; // Render below main player
+        other.opacity = 1.0; // Make other players fully opaque
+        other.priority = 3000; // Render above all decoration objects
         
         // Add a name tag or visual indicator
         other.add(
@@ -1325,21 +1399,7 @@ class FarmGame extends GameWithGrid with HasCollisionDetection, HasKeyboardHandl
           ),
         );
         
-        // Add a join effect (optional)
-        other.add(
-          CircleComponent(
-            radius: 20,
-            paint: Paint()
-              ..color = Colors.green.withOpacity(0.3)
-              ..style = PaintingStyle.fill,
-          )..add(
-            SequenceEffect([
-              ScaleEffect.to(Vector2.all(2.0), EffectController(duration: 0.5)),
-              ScaleEffect.to(Vector2.all(1.0), EffectController(duration: 0.5)),
-              RemoveEffect(),
-            ]),
-          ),
-        );
+        // Join effect removed to prevent ghostly appearance
         
         otherPlayers[destination.userId] = other;
         world.add(other);
@@ -1712,5 +1772,12 @@ class FarmGame extends GameWithGrid with HasCollisionDetection, HasKeyboardHandl
     } catch (e) {
       debugPrint('[FarmGame] ❌ Error loading seashells: $e');
     }
+  }
+
+  @override
+  bool hasObjectAtPosition(int gridX, int gridY) {
+    final pos = '$gridX,$gridY';
+    return bonfirePositions.contains(pos) || 
+           owlPositions.contains(pos);
   }
 } 

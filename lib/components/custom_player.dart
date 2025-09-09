@@ -3,12 +3,14 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lovenest/components/world/building.dart';
-import 'package:lovenest/components/world/farm_tile.dart';
-import 'package:lovenest/game/base/game_with_grid.dart';
-import 'package:lovenest/utils/pathfinding.dart';
-import 'package:lovenest/services/avatar_generation_service.dart';
-import 'package:lovenest/config/supabase_config.dart';
+import 'package:lovenest_valley/components/world/building.dart';
+import 'package:lovenest_valley/components/world/farm_tile.dart';
+import 'package:lovenest_valley/game/base/game_with_grid.dart';
+import 'package:lovenest_valley/game/simple_enhanced_farm_game.dart';
+import 'package:lovenest_valley/utils/pathfinding.dart';
+import 'package:lovenest_valley/services/avatar_generation_service.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/components/world/decoration_object.dart';
 
 enum PlayerDirection {
   up,
@@ -237,7 +239,11 @@ class CustomPlayer extends SpriteAnimationComponent with HasGameRef<GameWithGrid
   @override
   void update(double dt) {
     super.update(dt);
-    
+
+    // Dynamic Y-sort: player with greater screen Y renders above
+    final baselineY = position.y + size.y;
+    priority = 1000 + baselineY.toInt();
+
     // Handle pathfinding movement
     if (currentPath.isNotEmpty && currentPathIndex < currentPath.length) {
       final target = currentPath[currentPathIndex];
@@ -269,7 +275,7 @@ class CustomPlayer extends SpriteAnimationComponent with HasGameRef<GameWithGrid
       }
     }
     
-    // Apply movement with smooth interpolation
+    // Apply movement with smooth interpolation and grid-aware collision
     if (!velocity.isZero()) {
       // Store current position for interpolation
       if (_interpolationStart == null) {
@@ -277,8 +283,45 @@ class CustomPlayer extends SpriteAnimationComponent with HasGameRef<GameWithGrid
         _interpolationTime = 0.0;
       }
       
+      // Check if player is stuck and needs escape mode
+      bool escapeMode = false;
+      if (game is SimpleEnhancedFarmGame) {
+        final simpleGame = game as SimpleEnhancedFarmGame;
+        escapeMode = simpleGame.isPlayerStuckAndNeedsEscape(position);
+      }
+      
+      // Grid-aware movement: attempt axis-separated motion against obstacle grid
+      final double tile = game.pathfindingGrid.tileSize;
+      var next = position.clone();
+      
+      // X axis
+      final double dx = velocity.x * dt;
+      if (dx != 0) {
+        final tryX = next.x + dx;
+        final gx = (tryX / tile).floor();
+        final gy = (next.y / tile).floor();
+        if (escapeMode || !game.pathfindingGrid.isObstacle(gx, gy)) {
+          next.x = tryX;
+        } else {
+          velocity.x = 0;
+        }
+      }
+      
+      // Y axis
+      final double dy = velocity.y * dt;
+      if (dy != 0) {
+        final tryY = next.y + dy;
+        final gx = (next.x / tile).floor();
+        final gy = (tryY / tile).floor();
+        if (escapeMode || !game.pathfindingGrid.isObstacle(gx, gy)) {
+          next.y = tryY;
+        } else {
+          velocity.y = 0;
+        }
+      }
+      
       // Update position
-      position += velocity * dt;
+      position.setFrom(next);
       _interpolationTime += dt;
       
       // Broadcast position with rate limiting
@@ -404,6 +447,7 @@ class CustomPlayer extends SpriteAnimationComponent with HasGameRef<GameWithGrid
       // Don't stop pathfinding on collision, let it navigate around
       return false;
     }
+    // Decoration collisions handled purely by grid obstacles now
     return true;
   }
 

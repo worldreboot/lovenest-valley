@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.lovenest"
+    namespace = "com.liglius.lovenest"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
@@ -21,8 +21,8 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.lovenest"
+        // Updated package name for Play Store
+        applicationId = "com.liglius.lovenest"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 23
@@ -31,11 +31,21 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            // Using the generated keystore for release signing
+            keyAlias = "upload"
+            keyPassword = "lovenest123"
+            storeFile = file("upload-keystore.jks")
+            storePassword = "lovenest123"
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

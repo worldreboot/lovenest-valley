@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:lovenest/config/supabase_config.dart';
-import 'package:lovenest/screens/onboarding_screen.dart';
-import 'package:lovenest/screens/menu_screen.dart';
-import 'package:lovenest/main.dart' show FarmLoader; // Use FarmLoader to resolve shared farm and route to game
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/screens/onboarding_screen.dart';
+import 'package:lovenest_valley/screens/menu_screen.dart';
+import 'package:lovenest_valley/main.dart' show FarmLoader; // Use FarmLoader to resolve shared farm and route to game
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:lovenest/services/revenuecat_service.dart';
-import 'package:lovenest/screens/paywall_screen.dart';
-import 'package:lovenest/config/feature_flags.dart';
+import 'package:lovenest_valley/services/revenuecat_service.dart';
+import 'package:lovenest_valley/screens/paywall_screen.dart';
+import 'package:lovenest_valley/config/feature_flags.dart';
 // LinkPartnerScreen is pushed from FarmLoader; no direct import needed here
 
 class AuthFlowScreen extends StatefulWidget {

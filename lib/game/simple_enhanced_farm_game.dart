@@ -4,49 +4,53 @@ import 'package:flame/game.dart';
 import 'package:flame/sprite.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lovenest/components/player.dart';
-import 'package:lovenest/utils/pathfinding.dart';
-import 'package:lovenest/game/base/game_with_grid.dart';
-import 'package:lovenest/components/world/hoe_animation.dart';
-import 'package:lovenest/components/world/watering_can_animation.dart';
-import 'package:lovenest/components/owl_npc.dart';
-import 'package:lovenest/services/question_service.dart';
-import 'package:lovenest/services/daily_question_seed_service.dart';
-import 'package:lovenest/services/daily_question_seed_collection_service.dart';
-import 'package:lovenest/services/seed_service.dart';
-import 'package:lovenest/models/memory_garden/question.dart';
-import 'package:lovenest/behaviors/camera_bounds.dart';
-import 'package:lovenest/models/inventory.dart';
-import 'package:lovenest/utils/tiled_parser.dart' as custom_parser;
-import 'package:lovenest/terrain/terrain_type.dart';
-import 'package:lovenest/terrain/terrain_parser.dart';
-import 'package:lovenest/components/planted_seed_component.dart';
-import 'package:lovenest/utils/seed_color_generator.dart';
-import 'package:lovenest/services/farm_tile_service.dart';
-import 'package:lovenest/services/seashell_service.dart';
-import 'package:lovenest/components/world/seashell_object.dart';
-import 'package:lovenest/components/world/relationship_bonfire.dart';
-import 'package:lovenest/components/world/day_night_overlay.dart';
-import 'package:lovenest/components/world/gift_object.dart';
-import 'package:lovenest/services/placed_gift_service.dart';
-import 'package:lovenest/services/farm_player_service.dart';
-import 'package:lovenest/components/smooth_player.dart';
-import 'package:lovenest/config/supabase_config.dart';
-import 'package:lovenest/components/chest_object.dart';
-import 'package:lovenest/models/chest_storage.dart';
-import 'package:lovenest/services/chest_storage_service.dart';
-import 'package:lovenest/services/garden_repository.dart';
+import 'package:lovenest_valley/components/player.dart';
+import 'package:lovenest_valley/utils/pathfinding.dart';
+import 'package:lovenest_valley/game/base/game_with_grid.dart';
+import 'package:lovenest_valley/components/world/hoe_animation.dart';
+import 'package:lovenest_valley/components/world/watering_can_animation.dart';
+import 'package:lovenest_valley/components/owl_npc.dart';
+import 'package:lovenest_valley/services/question_service.dart';
+import 'package:lovenest_valley/services/daily_question_seed_service.dart';
+import 'package:lovenest_valley/services/daily_question_seed_collection_service.dart';
+import 'package:lovenest_valley/services/seed_service.dart';
+import 'package:lovenest_valley/models/memory_garden/question.dart';
+import 'package:lovenest_valley/behaviors/camera_bounds.dart';
+import 'package:lovenest_valley/models/inventory.dart';
+import 'package:lovenest_valley/utils/tiled_parser.dart' as custom_parser;
+import 'package:lovenest_valley/terrain/terrain_type.dart';
+import 'package:lovenest_valley/terrain/terrain_parser.dart';
+import 'package:lovenest_valley/components/planted_seed_component.dart';
+import 'package:lovenest_valley/utils/seed_color_generator.dart';
+import 'package:lovenest_valley/services/farm_tile_service.dart';
+import 'package:lovenest_valley/services/seashell_service.dart';
+import 'package:lovenest_valley/components/world/seashell_object.dart';
+import 'package:lovenest_valley/components/world/relationship_bonfire.dart';
+import 'package:lovenest_valley/components/world/day_night_overlay.dart';
+import 'package:lovenest_valley/components/world/light_overlay.dart';
+import 'package:lovenest_valley/components/world/gift_object.dart';
+import 'package:lovenest_valley/components/world/obstacle_overlay.dart';
+import 'package:lovenest_valley/services/placed_gift_service.dart';
+import 'package:lovenest_valley/services/farm_player_service.dart';
+import 'package:lovenest_valley/components/smooth_player.dart';
+import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/components/chest_object.dart';
+import 'package:lovenest_valley/models/chest_storage.dart';
+import 'package:lovenest_valley/services/chest_storage_service.dart';
+import 'package:lovenest_valley/services/garden_repository.dart';
+import 'package:lovenest_valley/services/starter_items_service.dart';
+import 'package:lovenest_valley/components/world/decoration_object.dart';
 // import 'package:flame/effects.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async' as dart_async;
 import 'dart:math' as math;
 // import 'dart:collection';
 
-import 'package:lovenest/game/simple_enhanced/utils/coord_utils.dart' as coord;
-import 'package:lovenest/game/simple_enhanced/terrain/tile_renderer.dart';
-import 'package:lovenest/game/simple_enhanced/ui/highlight_manager.dart';
-import 'package:lovenest/game/simple_enhanced/tools/tool_actions.dart';
-import 'package:lovenest/game/simple_enhanced/seeds/seed_sprites.dart';
+import 'package:lovenest_valley/game/simple_enhanced/utils/coord_utils.dart' as coord;
+import 'package:lovenest_valley/game/simple_enhanced/terrain/tile_renderer.dart';
+import 'package:lovenest_valley/game/simple_enhanced/ui/highlight_manager.dart';
+import 'package:lovenest_valley/game/simple_enhanced/tools/tool_actions.dart';
+import 'package:lovenest_valley/game/simple_enhanced/seeds/seed_sprites.dart';
 
 part 'simple_enhanced/parts/seeds.dart';
 part 'simple_enhanced/parts/backend_restore.dart';
@@ -97,6 +101,27 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
   
   // Store chest positions for pathfinding
   final Set<GridPos> chestPositions = {};
+  // Store gift positions for pathfinding
+  final Set<GridPos> giftPositions = {};
+  // Store seashell positions for pathfinding
+  final Set<GridPos> seashellPositions = {};
+  // Store decoration footprint obstacles for debug filtering
+  final Set<GridPos> decorationObstaclePositions = {};
+
+  @override
+  void markDecorationObstacle(int gridX, int gridY) {
+    decorationObstaclePositions.add(GridPos(gridX, gridY));
+    debugPrint('[SimpleEnhancedFarmGame] Marked decoration obstacle at ($gridX, $gridY). Total: ${decorationObstaclePositions.length}');
+  }
+
+  @override
+  bool isDecorationObstacleTile(int gridX, int gridY) {
+    final isDecoration = decorationObstaclePositions.contains(GridPos(gridX, gridY));
+    if (isDecoration) {
+      debugPrint('[SimpleEnhancedFarmGame] Tile ($gridX, $gridY) is decoration obstacle');
+    }
+    return isDecoration;
+  }
   
   // Realtime: subscription to chest updates
   dart_async.StreamSubscription<ChestStorage>? _chestUpdatesSub;
@@ -116,8 +141,31 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
   // Custom parser instances
   late custom_parser.TilesetParser _groundTilesetParser;
   late custom_parser.TilesetParser _beachTilesetParser;
+  late custom_parser.TilesetParser _stairsTilesetParser;
+  late custom_parser.TilesetParser _housesTilesetParser;
+  late custom_parser.TilesetParser _smokeTilesetParser;
+  late custom_parser.TilesetParser _treesTilesetParser;
+  late custom_parser.TilesetParser _woodenTilesetParser;
+  late custom_parser.TilesetParser _beachObjectsTilesetParser;
   late custom_parser.MapParser _mapParser;
   late custom_parser.AutoTiler _autoTiler;
+  // Tileset GID offsets and counts for property lookup
+  int? _groundFirstGid;
+  int? _beachFirstGid;
+  int? _stairsFirstGid;
+  int? _housesFirstGid;
+  int? _smokeFirstGid;
+  int? _treesFirstGid;
+  int? _woodenFirstGid;
+  int? _beachObjectsFirstGid;
+  int _groundTileCount = 0;
+  int _beachTileCount = 0;
+  int _stairsTileCount = 0;
+  int _housesTileCount = 0;
+  int _smokeTileCount = 0;
+  int _treesTileCount = 0;
+  int _woodenTileCount = 0;
+  int _beachObjectsTileCount = 0;
 
   // Tile data from our custom parser - now supports multiple layers
   List<List<int>>? _groundTileData;  // Ground layer (terrain)
@@ -134,6 +182,8 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
   late List<List<int>> mapVertexGrid;
   late Map<String, int> terrainSignatureMap;
   bool _useVertexTerrainSystem = true; // Toggle to switch between systems
+  // Gate: when false, do not auto-apply vertex overrides across the map
+  bool _autoApplyVertexOverrides = false;
   
   // Flag to track if we're using a fresh TMX-based map
   bool _isUsingFreshTMXMap = false;
@@ -149,6 +199,11 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
   
   /// Get current terrain system type
   String get currentTerrainSystem => _useVertexTerrainSystem ? 'Vertex-Based' : 'Auto-Tiling';
+
+  // Allow toggling vertex auto-apply behavior at runtime
+  void setVertexAutoApply(bool enabled) {
+    _autoApplyVertexOverrides = enabled;
+  }
   
   // Tile rendering components
   // Tile rendering via TileRenderer
@@ -278,21 +333,36 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
     
 
     
-    // Render the initial tilemap
-    await _renderTilemap();
-    // debugPrint('[SimpleEnhancedFarmGame] ✅ Tilemap rendered');
-    
     // Create pathfinding grid
     _pathfindingGrid = PathfindingGrid(mapWidth, mapHeight, tileSize);
+    // Populate obstacles based on Tiled walkable property
+    try {
+      _rebuildPathfindingObstaclesFromProperties();
+    } catch (_) {}
     
-    // Spawn player
+    // Spawn player FIRST (before rendering tilemap)
     await _spawnPlayer();
+    
+    // Set up camera SECOND (before rendering tilemap)
+    _setupCamera();
     
     // Add NPCs and objects
     await _addNPCsAndObjects();
     
-    // Set up camera
-    _setupCamera();
+    // Render the initial tilemap AFTER camera is set up
+    await _renderTilemap();
+    // debugPrint('[SimpleEnhancedFarmGame] ✅ Tilemap rendered');
+    
+    // Clean up any decorations that are on or adjacent to dirt tiles
+    await _cleanupDecorationsOnDirtTiles();
+    
+    // Log performance stats after initialization
+    _tileRenderer.logPerformanceStats();
+
+    // Add obstacle debug overlay (toggle by feature flag)
+    try {
+      await world.add(ObstacleOverlay(tileSize: tileSize));
+    } catch (_) {}
     
     // Initialize multiplayer after player/camera are ready
     await _initializeMultiplayer();
@@ -337,6 +407,14 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
       )..size = camera.viewport.size;
       await camera.viewport.add(overlay);
     } catch (_) {}
+
+    // Add additive light overlay above the day/night overlay
+    try {
+      final lights = LightOverlay(tileSize: tileSize)
+        ..position = Vector2.zero()
+        ..size = camera.viewport.size;
+      await camera.viewport.add(lights);
+    } catch (_) {}
   }
 
   Future<void> _initializeChestRealtime() async {
@@ -355,14 +433,18 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
           final gridY = updatedChest.position.y.toInt();
 
           // Check if a chest already exists at this grid position
-          final matches = world.children.query<ChestObject>().where((c) {
+          ChestObject? existingChest;
+          for (final c in world.children.query<ChestObject>()) {
             final cx = (c.position.x / SimpleEnhancedFarmGame.tileSize).floor();
             final cy = (c.position.y / SimpleEnhancedFarmGame.tileSize).floor();
-            return cx == gridX && cy == gridY;
-          }).toList();
-          final hasExisting = matches.isNotEmpty;
+            if (cx == gridX && cy == gridY) {
+              existingChest = c;
+              break;
+            }
+          }
+          final existingPosition = existingChest != null ? GridPos(gridX, gridY) : null;
 
-          if (!hasExisting) {
+          if (existingPosition == null) {
             // Add new chest object
             final pos = Vector2(
               gridX * SimpleEnhancedFarmGame.tileSize,
@@ -395,6 +477,15 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
   Future<void> _ensureStarterChest() async {
     if (inventoryManager == null) return;
     try {
+      // Check if user has already received starter items
+      final hasReceivedStarterItems = await StarterItemsService.hasReceivedStarterItems();
+      
+      if (hasReceivedStarterItems) {
+        debugPrint('[SimpleEnhancedFarmGame] ✅ User has already received starter items, skipping');
+        // User has already received starter items, don't add anything
+        return;
+      }
+
       // Check if inventory is already initialized (has items)
       final hasItems = inventoryManager!.slots.any((item) => item != null);
       
@@ -405,7 +496,7 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
         // Check if we still have no items after backend init (truly new user)
         final stillNoItems = inventoryManager!.slots.any((item) => item != null);
         if (!stillNoItems) {
-          debugPrint('[SimpleEnhancedFarmGame] 🎁 Adding starter items for new user');
+          debugPrint('[SimpleEnhancedFarmGame] 🎁 Adding starter items for new user (first time)');
           // Add all starter items for new users
           await inventoryManager!.addItem(const InventoryItem(
             id: 'watering_can',
@@ -427,9 +518,18 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
             iconPath: 'assets/images/Chests/1.png',
             quantity: 1,
           ));
+
+          // Mark that user has received starter items
+          await StarterItemsService.markStarterItemsReceived();
+          debugPrint('[SimpleEnhancedFarmGame] ✅ Marked starter items as received for user');
         }
       } else {
-        // Existing user - just ensure they have a chest
+        // User has items but hasn't been marked as receiving starter items
+        // This could happen if they had items before the tracking was implemented
+        debugPrint('[SimpleEnhancedFarmGame] 📦 User has items but no starter items tracking, marking as received');
+        await StarterItemsService.markStarterItemsReceived();
+        
+        // Ensure they have a chest
         final hasChest = inventoryManager!.slots.any((item) => item?.id == 'chest');
         if (!hasChest) {
           debugPrint('[SimpleEnhancedFarmGame] 📦 Adding missing chest to existing user');
@@ -441,16 +541,25 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
           ));
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[SimpleEnhancedFarmGame] ❌ Error in _ensureStarterChest: $e');
+    }
   }
 
   Future<void> _loadChestsFromBackend() async {
     try {
-      final couple = await GardenRepository().getUserCouple();
-      if (couple == null) return; // Only load when a valid couple exists
-      
       final service = ChestStorageService();
-      final chests = await service.getChests(couple.id);
+      
+      // Get chests for current user (couple or individual)
+      final chests = await service.getCurrentUserChests();
+      
+      if (chests.isEmpty) {
+        debugPrint('[SimpleEnhancedFarmGame] No chests found for current user');
+        return;
+      }
+      
+      debugPrint('[SimpleEnhancedFarmGame] Loading ${chests.length} chests from backend');
+      
       for (final chest in chests) {
         // Prevent duplicates if already present
         final existing = world.children.query<ChestObject>().any((c) {
@@ -470,12 +579,58 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
           examineText: 'Open Chest',
           onExamineRequested: onExamine,
           chestStorage: chest,
+          onPickUp: (chestId) async {
+            print('[SimpleEnhancedFarmGame] 🎯 onPickUp callback triggered for backend chest $chestId');
+            // Only pick up if adjacent
+            final gridX = chest.position.x.toInt();
+            final gridY = chest.position.y.toInt();
+            if (!_toolActions.isAdjacent(player.position, gridX, gridY)) {
+              print('[SimpleEnhancedFarmGame] ❌ Cannot pick up backend chest - not adjacent to player');
+              return;
+            }
+            
+            print('[SimpleEnhancedFarmGame] ✅ Player is adjacent, proceeding with backend chest pickup');
+            // Add chest back to inventory WITH its storage data preserved
+            await inventoryManager?.addItem(InventoryItem(
+              id: 'chest',
+              name: 'Chest',
+              iconPath: 'assets/images/Chests/1.png',
+              quantity: 1,
+              chestStorage: chest, // Preserve the chest storage with all its items
+            ));
+            
+            print('[SimpleEnhancedFarmGame] 📦 Backend chest added to inventory with ${chest.items.length} items preserved');
+            
+            // Remove chest from world
+            for (final c in world.children.query<ChestObject>()) {
+              final cx = (c.position.x / SimpleEnhancedFarmGame.tileSize).floor();
+              final gy = (c.position.y / SimpleEnhancedFarmGame.tileSize).floor();
+              if (cx == gridX && gy == gridY) {
+                print('[SimpleEnhancedFarmGame] 🗑️ Removing backend chest from world at ($gridX, $gridY)');
+                c.removeFromParent();
+                break;
+              }
+            }
+            
+            // Remove from chest positions and pathfinding grid
+            chestPositions.remove(GridPos(gridX, gridY));
+            _pathfindingGrid.setObstacle(gridX, gridY, false);
+            
+            // IMPORTANT: Don't delete from backend - preserve the storage data
+            // The chest storage will be reused when the chest is placed back down
+            debugPrint('[SimpleEnhancedFarmGame] 📦 Chest loaded from backend picked up with ${chest.items.length} items preserved');
+          },
         );
+        
+        print('[SimpleEnhancedFarmGame] 🏗️ Backend ChestObject created with onPickUp callback: ${chestObj.onPickUp != null}');
         await world.add(chestObj);
+        print('[SimpleEnhancedFarmGame] 🌍 Backend chest added to world');
         chestPositions.add(GridPos(chest.position.x.toInt(), chest.position.y.toInt()));
         _pathfindingGrid.setObstacle(chest.position.x.toInt(), chest.position.y.toInt(), true);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[SimpleEnhancedFarmGame] ❌ Error loading chests from backend: $e');
+    }
   }
   
   /// Check player status after game is fully loaded
@@ -499,7 +654,7 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
   }
 
   Future<void> _spawnPlayer() async {
-    // debugPrint('[SimpleEnhancedFarmGame] Spawning player...');
+    debugPrint('[SimpleEnhancedFarmGame] Spawning player...');
     
     // Try to find the PlayerSpawn object in the Tiled map
     bool playerSpawned = false;
@@ -514,19 +669,19 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
               player.onPositionChanged = (position, {animationState}) => _handlePlayerPositionChange(position);
               world.add(player);
               playerSpawned = true;
-              // debugPrint('[SimpleEnhancedFarmGame] ✅ Player spawned at (${player.position.x}, ${player.position.y}) from Spawn object');
+              debugPrint('[SimpleEnhancedFarmGame] ✅ Player spawned at (${player.position.x}, ${player.position.y}) from Spawn object');
               break;
             }
           }
         }
       }
     } catch (e) {
-      // debugPrint('[SimpleEnhancedFarmGame] ⚠️ Error accessing Tiled map objects: $e');
+      debugPrint('[SimpleEnhancedFarmGame] ⚠️ Error accessing Tiled map objects: $e');
     }
     
     // Fallback to hardcoded position if no PlayerSpawn object found
     if (!playerSpawned) {
-      // debugPrint('[SimpleEnhancedFarmGame] ⚠️ No PlayerSpawn object found, using fallback position');
+      debugPrint('[SimpleEnhancedFarmGame] ⚠️ No PlayerSpawn object found, using fallback position');
       final spawnX = 488.0;
       final spawnY = 181.0;
       
@@ -535,7 +690,7 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
       player.onPositionChanged = (position, {animationState}) => _handlePlayerPositionChange(position);
       world.add(player);
       
-      // debugPrint('[SimpleEnhancedFarmGame] ✅ Player spawned at fallback position (${player.position.x}, ${player.position.y})');
+      debugPrint('[SimpleEnhancedFarmGame] ✅ Player spawned at fallback position (${player.position.x}, ${player.position.y})');
     }
     
     // Let Flame handle the component lifecycle properly
@@ -559,10 +714,7 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
   }
 
   Future<void> _addNPCsAndObjects() async {
-    // Add the Owl NPC
-    final owlX = 22;
-    final owlY = 14;
-    
+    // Load owl sprite
     final owlImage = await images.load('owl.png');
     final owlNotiImage = await images.load('owl_noti.png');
     
@@ -577,8 +729,35 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
     final scale = 0.10; // Scale down to 10% of original size
     final owlSize = Vector2(frameWidth * scale, frameHeight * scale);
     
+    // Try to get spawn points from Tiled map
+    Vector2? owlSpawnPosition;
+    Vector2? bonfireSpawnPosition;
+    
+    try {
+      final objectGroups = _mapParser.getObjectGroups();
+      for (final group in objectGroups) {
+        if (group.name == 'SpawnPoint') {
+          for (final obj in group.objects) {
+            if (obj.name == 'OwlSpawn') {
+              owlSpawnPosition = Vector2(obj.x, obj.y);
+              debugPrint('[SimpleEnhancedFarmGame] 🦉 Found OwlSpawn at (${obj.x}, ${obj.y})');
+            } else if (obj.name == 'BonfireSpawn') {
+              bonfireSpawnPosition = Vector2(obj.x, obj.y);
+              debugPrint('[SimpleEnhancedFarmGame] 🔥 Found BonfireSpawn at (${obj.x}, ${obj.y})');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[SimpleEnhancedFarmGame] ⚠️ Could not read spawn points from Tiled map: $e');
+    }
+    
+    // Use spawn points from Tiled map, or fallback to hardcoded positions
+    final owlPosition = owlSpawnPosition ?? Vector2(41 * tileSize, 5.5 * tileSize);
+    final bonfirePosition = bonfireSpawnPosition ?? Vector2(34.5 * tileSize, 9.5 * tileSize);
+    
     final owlNpc = OwlNpcComponent(
-      position: Vector2(owlX * tileSize, owlY * tileSize),
+      position: owlPosition,
       size: owlSize,
       idleSprite: idleSprite,
       notificationSprite: notificationSprite,
@@ -598,7 +777,22 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
       },
     );
     world.add(owlNpc);
-    owlPositions.add(GridPos(owlX, owlY));
+    
+    // Block all tiles covered by owl footprint
+    final owlTileX = (owlPosition.x / tileSize).floor();
+    final owlTileY = (owlPosition.y / tileSize).floor();
+    final owlCoverW = (owlSize.x / tileSize).ceil();
+    final owlCoverH = (owlSize.y / tileSize).ceil();
+    for (int dy = 0; dy < owlCoverH; dy++) {
+      for (int dx = 0; dx < owlCoverW; dx++) {
+        final gx = owlTileX + dx;
+        final gy = owlTileY + dy;
+        if (gx >= 0 && gx < mapWidth && gy >= 0 && gy < mapHeight) {
+          owlPositions.add(GridPos(gx, gy));
+          _pathfindingGrid.setObstacle(gx, gy, true);
+        }
+      }
+    }
     
     // Check for daily question and update owl notification
     final dailyQuestion = await QuestionService.fetchDailyQuestion();
@@ -619,23 +813,34 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
       debugPrint('[SimpleEnhancedFarmGame] 🦉 Owl notification OFF - no daily question available');
     }
     
-    // debugPrint('[SimpleEnhancedFarmGame] 🦉 Owl NPC added at position (${owlX * tileSize}, ${owlY * tileSize}) with size ${owlSize}');
+    debugPrint('[SimpleEnhancedFarmGame] 🦉 Owl NPC added at position (${owlPosition.x.toStringAsFixed(1)}, ${owlPosition.y.toStringAsFixed(1)}) with size ${owlSize}');
     
     // Relationship Bonfire (grows with shared goals)
     try {
-      // Place near the Owl so it's within initial camera view
-      final spawnTileX = (owlX + 3).clamp(0, mapWidth - 1);
-      final spawnTileY = (owlY).clamp(0, mapHeight - 1);
-      final bonfireX = spawnTileX * tileSize;
-      final bonfireY = spawnTileY * tileSize;
       final bonfireSize = Vector2.all(32);
       final relationshipBonfire = RelationshipBonfire(
         farmId: farmId,
-        position: Vector2(bonfireX, bonfireY),
+        position: bonfirePosition,
         size: bonfireSize,
       );
       await world.add(relationshipBonfire);
-      debugPrint('[SimpleEnhancedFarmGame] 🔥 RelationshipBonfire added near owl at (${bonfireX.toStringAsFixed(1)}, ${bonfireY.toStringAsFixed(1)})');
+      
+      // Block all tiles covered by bonfire footprint (likely 2x2)
+      final bonfireTileX = (bonfirePosition.x / tileSize).floor();
+      final bonfireTileY = (bonfirePosition.y / tileSize).floor();
+      final fireCoverW = (bonfireSize.x / tileSize).ceil();
+      final fireCoverH = (bonfireSize.y / tileSize).ceil();
+      for (int dy = 0; dy < fireCoverH; dy++) {
+        for (int dx = 0; dx < fireCoverW; dx++) {
+          final gx = bonfireTileX + dx;
+          final gy = bonfireTileY + dy;
+          if (gx >= 0 && gx < mapWidth && gy >= 0 && gy < mapHeight) {
+            bonfirePositions.add(GridPos(gx, gy));
+            _pathfindingGrid.setObstacle(gx, gy, true);
+          }
+        }
+      }
+      debugPrint('[SimpleEnhancedFarmGame] 🔥 RelationshipBonfire added at (${bonfirePosition.x.toStringAsFixed(1)}, ${bonfirePosition.y.toStringAsFixed(1)})');
     } catch (e, st) {
       debugPrint('[SimpleEnhancedFarmGame] ❌ Failed to add RelationshipBonfire: $e');
       debugPrint('$st');
@@ -672,7 +877,28 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
 
     // Reasonable zoom so player is visible
     camera.viewfinder.zoom = 2.0;
-    // debugPrint('[SimpleEnhancedFarmGame] 📷 Built-in camera configured: snapTo ${player.position}, zoom ${camera.viewfinder.zoom}');
+    
+    // Ensure camera starts within bounds by forcing an update
+    // This prevents the camera from starting outside the map boundaries
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Force camera bounds check after the first frame
+      final boundsBehavior = camera.viewfinder.children.whereType<CameraBoundsBehavior>().firstOrNull;
+      if (boundsBehavior != null) {
+        boundsBehavior.update(0.0);
+      }
+    });
+    
+    debugPrint('[SimpleEnhancedFarmGame] 📷 Camera configured:');
+    debugPrint('  - Map size: ${mapWidth}x${mapHeight} tiles (${mapWidth * tileSize}x${mapHeight * tileSize} pixels)');
+    debugPrint('  - Player position: ${player.position}');
+    debugPrint('  - Camera zoom: ${camera.viewfinder.zoom}');
+    debugPrint('  - Camera bounds behavior added');
+    
+    // Force a refresh of decoration objects after camera is properly set up
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      debugPrint('[SimpleEnhancedFarmGame] 🔄 Forcing decoration refresh after camera setup...');
+      _tileRenderer.updateVisibleTiles(force: true);
+    });
   }
 
   /// Handle player position changes
@@ -687,7 +913,10 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
     });
   }
 
+  @override
   void onTapDown(TapDownEvent event) {
+    debugPrint('[SimpleEnhancedFarmGame] 🎯 Game received tap at ${event.canvasPosition}');
+    debugPrint('[SimpleEnhancedFarmGame] 🎯 Tap event device position: ${event.devicePosition}');
     // Call super first to allow child components (like owl) to handle their tap events
     super.onTapDown(event);
     // Then handle game-specific tap logic
@@ -815,7 +1044,7 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
   /// Check if a tile is tilled (dirt) and can be planted on
   // ignore: unused_element
   bool _isTileTilled(int gridX, int gridY) {
-    debugPrint('[SimpleEnhancedFarmGame] 🔍 Checking if tile is tilled at ($gridX, $gridY)');
+    // debugPrint('[SimpleEnhancedFarmGame] 🔍 Checking if tile is tilled at ($gridX, $gridY)');
     
     // Use vertex-based system if enabled
     if (_useVertexTerrainSystem) {
@@ -828,10 +1057,10 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
             mapVertexGrid[gridY + 1][gridX] == dirtId &&
             mapVertexGrid[gridY + 1][gridX + 1] == dirtId;
         
-        debugPrint('[SimpleEnhancedFarmGame]   - Vertex system: Tile is tilled: $isTilled');
+        // debugPrint('[SimpleEnhancedFarmGame]   - Vertex system: Tile is tilled: $isTilled');
         return isTilled;
       } else {
-        debugPrint('[SimpleEnhancedFarmGame]   - Vertex system: Tile out of bounds');
+        // debugPrint('[SimpleEnhancedFarmGame]   - Vertex system: Tile out of bounds');
         return false;
       }
     } else {
@@ -892,6 +1121,9 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
   /// Apply the "Tilled" Wang ID (3) to a tile to transform it to tilled soil
   Future<void> _applyTilledWangId(int gridX, int gridY) async {
     // debugPrint('[SimpleEnhancedFarmGame] 🚨 _applyTilledWangId called for ($gridX, $gridY)');
+    
+    // Remove any decorations on this tile before tilling
+    // _removeDecorationsAtGridPosition(gridX, gridY); // Removed as per edit hint
     
     if (_tileData != null && gridX >= 0 && gridX < _tileData![0].length && gridY >= 0 && gridY < _tileData!.length) {
       final currentGid = _tileData![gridY][gridX];
@@ -1031,6 +1263,59 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
     await _terrainSystem.till(gridX, gridY);
   }
 
+  /// Remove decorations at a specific grid position and all adjacent tiles
+  // void _removeDecorationsAtGridPosition(int gridX, int gridY) {
+  //   final tileSize = SimpleEnhancedFarmGame.tileSize;
+  //   final decorationsToRemove = <DecorationObject>[];
+    
+  //   // Check the center tile and all 8 adjacent tiles (3x3 grid)
+  //   for (int dy = -1; dy <= 1; dy++) {
+  //     for (int dx = -1; dx <= 1; dx++) {
+  //       final checkX = gridX + dx;
+  //       final checkY = gridY + dy;
+        
+  //       // Calculate tile boundaries for this position
+  //       final tileLeft = checkX * tileSize;
+  //       final tileTop = checkY * tileSize;
+  //       final tileRight = tileLeft + tileSize;
+  //       final tileBottom = tileTop + tileSize;
+        
+  //       // Find all decoration objects that overlap with this tile
+  //       final decorations = descendants().whereType<DecorationObject>().toList();
+        
+  //       for (final decoration in decorations) {
+  //         // Check if the decoration overlaps with the tile
+  //         final decorationLeft = decoration.position.x;
+  //         final decorationTop = decoration.position.y;
+  //         final decorationRight = decorationLeft + decoration.size.x;
+  //         final decorationBottom = decorationTop + decoration.size.y;
+          
+  //         // Check for overlap
+  //         if (decorationLeft < tileRight && 
+  //             decorationRight > tileLeft && 
+  //             decorationTop < tileBottom && 
+  //             decorationBottom > tileTop) {
+            
+  //           // Only add if not already in the list to avoid duplicates
+  //           if (!decorationsToRemove.contains(decoration)) {
+  //             debugPrint('[SimpleEnhancedFarmGame] 🗑️ Removing decoration ${decoration.objectType} at grid ($checkX, $checkY)');
+  //             decorationsToRemove.add(decoration);
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+    
+  //   // Remove the decorations from the game world
+  //   for (final decoration in decorationsToRemove) {
+  //     decoration.removeFromParent();
+  //   }
+    
+  //   if (decorationsToRemove.isNotEmpty) {
+  //     debugPrint('[SimpleEnhancedFarmGame] ✅ Removed ${decorationsToRemove.length} decoration(s) from grid ($gridX, $gridY) and adjacent tiles');
+  //   }
+  // }
+
   /// Get all adjacent positions where the hoe can be used
   List<math.Point<double>> _getAdjacentHoePositions() {
     return _getAdjacentPositionsWhere(_isTileTillable);
@@ -1146,6 +1431,36 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
     }
   }
 
+  /// Check if camera is within bounds and log status
+  void checkCameraBounds() {
+    final viewfinder = camera.viewfinder;
+    final worldWidth = mapWidth * tileSize;
+    final worldHeight = mapHeight * tileSize;
+    
+    final visibleRect = camera.visibleWorldRect;
+    final halfViewportWidth = visibleRect.width / 2;
+    final halfViewportHeight = visibleRect.height / 2;
+    
+    final minX = halfViewportWidth;
+    final maxX = worldWidth - halfViewportWidth;
+    final minY = halfViewportHeight;
+    final maxY = worldHeight - halfViewportHeight;
+    
+    final isWithinBounds = viewfinder.position.x >= minX && 
+                          viewfinder.position.x <= maxX &&
+                          viewfinder.position.y >= minY && 
+                          viewfinder.position.y <= maxY;
+    
+    debugPrint('[SimpleEnhancedFarmGame] 📷 Camera bounds check:');
+    debugPrint('  - Camera position: ${viewfinder.position}');
+    debugPrint('  - World bounds: (${minX.toStringAsFixed(1)}, ${minY.toStringAsFixed(1)}) to (${maxX.toStringAsFixed(1)}, ${maxY.toStringAsFixed(1)})');
+    debugPrint('  - Within bounds: $isWithinBounds');
+    
+    if (!isWithinBounds) {
+      debugPrint('  - ⚠️ Camera is outside bounds!');
+    }
+  }
+
   /// Reload the map data from valley.tmx file
   Future<void> reloadMap() async {
     try {
@@ -1163,6 +1478,67 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
       debugPrint('[SimpleEnhancedFarmGame] ✅ Map reloaded successfully from valley.tmx (Ground + Decorations)');
     } catch (e) {
       debugPrint('[SimpleEnhancedFarmGame] ❌ Error reloading map: $e');
+    }
+  }
+
+  @override
+  bool hasObjectAtPosition(int gridX, int gridY) {
+    final pos = GridPos(gridX, gridY);
+    return bonfirePositions.contains(pos) || 
+           owlPositions.contains(pos) || 
+           chestPositions.contains(pos) ||
+           giftPositions.contains(pos) ||
+           seashellPositions.contains(pos);
+  }
+
+  /// Clean up decorations that are on or adjacent to dirt tiles on app reload
+  Future<void> _cleanupDecorationsOnDirtTiles() async {
+    debugPrint('[SimpleEnhancedFarmGame] 🧹 Cleaning up decorations on dirt tiles...');
+    
+    final decorations = descendants().whereType<DecorationObject>().toList();
+    final decorationsToRemove = <DecorationObject>[];
+    
+    for (final decoration in decorations) {
+      // Calculate the grid position of this decoration
+      final decorationGridX = (decoration.position.x / tileSize).floor();
+      final decorationGridY = (decoration.position.y / tileSize).floor();
+      
+      // Check if the decoration is on or adjacent to a dirt tile
+      bool shouldRemove = false;
+      
+      // Check a 3x3 grid around the decoration
+      for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+          final checkX = decorationGridX + dx;
+          final checkY = decorationGridY + dy;
+          
+          // Bounds check
+          if (checkX >= 0 && checkX < mapWidth && checkY >= 0 && checkY < mapHeight) {
+            // Check if this tile is dirt (tilled)
+            if (_isTileTilled(checkX, checkY)) {
+              shouldRemove = true;
+              break;
+            }
+          }
+        }
+        if (shouldRemove) break;
+      }
+      
+      if (shouldRemove) {
+        decorationsToRemove.add(decoration);
+        debugPrint('[SimpleEnhancedFarmGame] 🗑️ Marking decoration for removal: ${decoration.objectType} at grid ($decorationGridX, $decorationGridY)');
+      }
+    }
+    
+    // Remove the decorations
+    for (final decoration in decorationsToRemove) {
+      decoration.removeFromParent();
+    }
+    
+    if (decorationsToRemove.isNotEmpty) {
+      debugPrint('[SimpleEnhancedFarmGame] ✅ Cleaned up ${decorationsToRemove.length} decoration(s) on dirt tiles');
+    } else {
+      debugPrint('[SimpleEnhancedFarmGame] ✅ No decorations found on dirt tiles');
     }
   }
 

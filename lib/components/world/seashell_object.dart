@@ -4,7 +4,7 @@ import 'package:flame/sprite.dart';
 import 'package:flame/effects.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:lovenest/services/seashell_service.dart';
+import 'package:lovenest_valley/services/seashell_service.dart';
 
 class SeashellObject extends SpriteComponent with TapCallbacks {
   final String audioUrl;
@@ -46,6 +46,14 @@ class SeashellObject extends SpriteComponent with TapCallbacks {
     _removeNotification();
     
     return true; // Consume the tap event
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    // Dynamic Y-sort so the player in front draws above
+    final baselineY = position.y + size.y;
+    priority = 1000 + baselineY.toInt();
   }
 
   Future<void> _playAudio() async {

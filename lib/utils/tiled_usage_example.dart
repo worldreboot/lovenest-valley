@@ -1,6 +1,6 @@
 import 'package:flame_tiled/flame_tiled.dart';
-import 'package:lovenest/components/world/enhanced_dynamic_tilemap.dart';
-import 'package:lovenest/utils/tiled_parser.dart' as custom_parser;
+import 'package:lovenest_valley/components/world/enhanced_dynamic_tilemap.dart';
+import 'package:lovenest_valley/utils/tiled_parser.dart' as custom_parser;
 
 /// Example usage of the custom Tiled parsers and enhanced dynamic tilemap
 class TiledUsageExample {

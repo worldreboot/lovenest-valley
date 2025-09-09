@@ -15,9 +15,28 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
     final grid = coord.worldToGrid(worldPosition, SimpleEnhancedFarmGame.tileSize);
     final gridX = grid.x;
     final gridY = grid.y;
-    if (!_isValidTileIndex(gridX, gridY)) {
-      return;
-    }
+    
+              // Log tile tap coordinates
+          print('[SimpleEnhancedFarmGame] 👆 User tapped tile at coordinates ($gridX, $gridY)');
+          
+          // Log base and effective GIDs at the tapped tile
+          final effectiveGid = _tileRenderer.getEffectiveGidAt(gridX, gridY);
+          if (effectiveGid != null) {
+            int? baseGid;
+            if (_tileRenderer.groundTileData != null &&
+                gridY >= 0 && gridY < _tileRenderer.groundTileData!.length &&
+                gridX >= 0 && gridX < _tileRenderer.groundTileData![gridY].length) {
+              baseGid = _tileRenderer.groundTileData![gridY][gridX];
+            }
+            print('[SimpleEnhancedFarmGame] 🗺️ Tile GIDs at ($gridX, $gridY): base=${baseGid ?? 'n/a'}, effective=$effectiveGid');
+          } else {
+            print('[SimpleEnhancedFarmGame] ❌ Cannot access ground data at ($gridX, $gridY)');
+          }
+          
+          if (!_isValidTileIndex(gridX, gridY)) {
+            print('[SimpleEnhancedFarmGame] ❌ Invalid tile coordinates ($gridX, $gridY) - outside map bounds');
+            return;
+          }
     if (_toolActions.isAdjacent(player.position, gridX, gridY) && _currentHoeState && _isTileTillable(gridX, gridY)) {
       _playHoeAnimation(gridX, gridY);
     } else if (_toolActions.isAdjacent(player.position, gridX, gridY) && _currentHoeState && !_isTileTillable(gridX, gridY)) {
@@ -84,34 +103,90 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
 
     // Try to persist chest to backend - ensure a valid couple exists
     ChestStorage storage;
-    try {
-      final coupleRepo = GardenRepository();
-      var couple = await coupleRepo.getUserCouple();
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-
-      // If no couple exists yet but user is signed in, create a self-couple (user paired with self)
-      if (couple == null && userId != null) {
-        try {
-          couple = await coupleRepo.createCouple(userId);
-          debugPrint('[SimpleEnhancedFarmGame] ✅ Created self-couple for user $userId');
-        } catch (e) {
-          debugPrint('[SimpleEnhancedFarmGame] ❌ Failed to create self-couple: $e');
+    
+    // Check if the selected chest has existing storage data (from being picked up)
+    final selectedItem = inventoryManager?.selectedItem;
+    if (selectedItem?.chestStorage != null) {
+      // Reuse existing chest storage - preserve all items!
+      storage = selectedItem!.chestStorage!;
+      debugPrint('[SimpleEnhancedFarmGame] 🔄 Reusing existing chest storage with ${storage.items.length} items');
+      
+      // IMPORTANT: Clean up any existing chest objects at the old position BEFORE updating
+      final oldPosition = selectedItem.chestStorage!.position;
+      final oldGridX = oldPosition.x.toInt();
+      final oldGridY = oldPosition.y.toInt();
+      
+      // Remove any chest objects at the old position
+      for (final c in world.children.query<ChestObject>()) {
+        final cx = (c.position.x / SimpleEnhancedFarmGame.tileSize).floor();
+        final cy = (c.position.y / SimpleEnhancedFarmGame.tileSize).floor();
+        if (cx == oldGridX && cy == oldGridY) {
+          debugPrint('[SimpleEnhancedFarmGame] 🧹 Cleaning up old chest at ($oldGridX, $oldGridY) before moving to ($gridX, $gridY)');
+          c.removeFromParent();
+          // Remove from old position tracking
+          chestPositions.remove(GridPos(oldGridX, oldGridY));
+          _pathfindingGrid.setObstacle(oldGridX, oldGridY, false);
+          break;
         }
       }
+      
+      // Update the position for the new placement
+      storage = storage.copyWith(
+        position: Position(gridX.toDouble(), gridY.toDouble()),
+        updatedAt: DateTime.now(),
+      );
 
-      if (couple != null) {
-        // Persist chest under a valid couple ID (FK satisfied)
-        storage = await ChestStorageService().createChest(
-          coupleId: couple.id,
-          position: Position(gridX.toDouble(), gridY.toDouble()),
-          name: 'Chest',
-          maxCapacity: 20,
-        );
-      } else {
-        // Fallback to local-only if still no couple/user context
+      // Persist new position if this chest is synced (not local-only)
+      if (storage.syncStatus != 'local_only') {
+        try {
+          storage = await ChestStorageService().updateChest(storage);
+          debugPrint('[SimpleEnhancedFarmGame] ✅ Persisted chest position to (${gridX}, ${gridY})');
+        } catch (e) {
+          debugPrint('[SimpleEnhancedFarmGame] ❌ Failed to persist chest position: $e');
+        }
+      }
+    } else {
+      // Create new chest storage (for fresh chests from inventory)
+      try {
+        final coupleRepo = GardenRepository();
+        var couple = await coupleRepo.getUserCouple();
+        final userId = Supabase.instance.client.auth.currentUser?.id;
+
+        if (couple != null) {
+          // Persist chest under a valid couple ID (FK satisfied)
+          storage = await ChestStorageService().createChest(
+            coupleId: couple.id,
+            position: Position(gridX.toDouble(), gridY.toDouble()),
+            name: 'Chest',
+            maxCapacity: 20,
+          );
+        } else if (userId != null) {
+          // User is not in a couple, create individual user chest
+          storage = await ChestStorageService().createChest(
+            userId: userId,
+            position: Position(gridX.toDouble(), gridY.toDouble()),
+            name: 'Chest',
+            maxCapacity: 20,
+          );
+        } else {
+          // Fallback to local-only if no user context
+          storage = ChestStorage(
+            id: 'chest_${DateTime.now().millisecondsSinceEpoch}',
+            coupleId: 'local',
+            position: Position(gridX.toDouble(), gridY.toDouble()),
+            items: const [],
+            name: 'Chest',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            version: 1,
+            syncStatus: 'local_only',
+          );
+        }
+      } catch (e) {
+        // If anything fails, create local-only chest
         storage = ChestStorage(
           id: 'chest_${DateTime.now().millisecondsSinceEpoch}',
-          coupleId: 'local',
+          coupleId: Supabase.instance.client.auth.currentUser?.id ?? 'local',
           position: Position(gridX.toDouble(), gridY.toDouble()),
           items: const [],
           name: 'Chest',
@@ -121,19 +196,6 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
           syncStatus: 'local_only',
         );
       }
-    } catch (e) {
-      // If anything fails, create local-only chest
-      storage = ChestStorage(
-        id: 'chest_${DateTime.now().millisecondsSinceEpoch}',
-        coupleId: Supabase.instance.client.auth.currentUser?.id ?? 'local',
-        position: Position(gridX.toDouble(), gridY.toDouble()),
-        items: const [],
-        name: 'Chest',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        version: 1,
-        syncStatus: 'local_only',
-      );
     }
 
     final pos = Vector2(gridX * SimpleEnhancedFarmGame.tileSize, gridY * SimpleEnhancedFarmGame.tileSize);
@@ -143,6 +205,37 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
       examineText: 'Open Chest',
       onExamineRequested: onExamine,
       chestStorage: storage,
+      onPickUp: (chestId) async {
+        // Only pick up if adjacent
+        if (!_toolActions.isAdjacent(player.position, gridX, gridY)) return;
+        
+        // Add chest back to inventory WITH its storage data preserved
+        await inventoryManager?.addItem(InventoryItem(
+          id: 'chest',
+          name: 'Chest',
+          iconPath: 'assets/images/Chests/1.png',
+          quantity: 1,
+          chestStorage: storage, // Preserve the chest storage with all its items
+        ));
+        
+        // Remove chest from world
+        for (final c in world.children.query<ChestObject>()) {
+          final cx = (c.position.x / SimpleEnhancedFarmGame.tileSize).floor();
+          final cy = (c.position.y / SimpleEnhancedFarmGame.tileSize).floor();
+          if (cx == gridX && cy == gridY) {
+            c.removeFromParent();
+            break;
+          }
+        }
+        
+        // Remove from chest positions and pathfinding grid
+        chestPositions.remove(GridPos(gridX, gridY));
+        _pathfindingGrid.setObstacle(gridX, gridY, false);
+        
+        // IMPORTANT: Don't delete from backend - preserve the storage data
+        // The chest storage will be reused when the chest is placed back down
+        debugPrint('[SimpleEnhancedFarmGame] 📦 Chest picked up with ${storage.items.length} items preserved');
+      },
     );
 
     await world.add(chest);
@@ -192,6 +285,9 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
       },
     );
     await world.add(gift);
+    // Mark as obstacle
+    giftPositions.add(GridPos(gridX, gridY));
+    _pathfindingGrid.setObstacle(gridX, gridY, true);
     // Persist placement in backend
     await PlacedGiftService.placeGift(
       farmId: farmId,

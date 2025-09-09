@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lovenest/models/relationship_goal.dart';
+import 'package:lovenest_valley/models/relationship_goal.dart';
 
 class RelationshipGoalsDialog extends StatefulWidget {
   final Map<RelationshipGoalCategory, List<RelationshipGoal>> goalsByCategory;
