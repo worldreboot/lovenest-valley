@@ -63,7 +63,9 @@ class _LinkPartnerScreenState extends State<LinkPartnerScreen> {
     setState(() => _creating = true);
     try {
       final res = await _service.createInvite();
-      setState(() => _activeInvite = res);
+      if (mounted) {
+        setState(() => _activeInvite = res);
+      }
     } catch (e) {
       _showSnack(e.toString());
     } finally {
@@ -74,14 +76,18 @@ class _LinkPartnerScreenState extends State<LinkPartnerScreen> {
   Future<void> _cancelInvite() async {
     try {
       await _service.cancelInvite();
-      setState(() => _activeInvite = null);
+      if (mounted) {
+        setState(() => _activeInvite = null);
+      }
     } catch (e) {
       _showSnack('Failed to cancel invite');
     }
   }
 
   Future<void> _lookupInvite(String code) async {
-    setState(() => _loadingInvite = true);
+    if (mounted) {
+      setState(() => _loadingInvite = true);
+    }
     try {
       await _service.getInviteByCode(code);
       // No-op for now; RLS allows prefill but we keep UI simple
@@ -93,7 +99,9 @@ class _LinkPartnerScreenState extends State<LinkPartnerScreen> {
   Future<void> _accept() async {
     final code = _codeController.text.trim();
     if (code.length != 6) return _showSnack('Enter a valid 6-digit code');
-    setState(() => _redeeming = true);
+    if (mounted) {
+      setState(() => _redeeming = true);
+    }
     try {
       final coupleId = await _service.redeem(code);
       // After a successful couple creation, connect farms (inviter = user1, invitee = current)
@@ -621,7 +629,9 @@ class _LinkPartnerScreenState extends State<LinkPartnerScreen> {
                        selection: TextSelection.collapsed(offset: digitsOnly.length),
                      );
                    }
-                   setState(() {}); // Rebuild to show characters in boxes
+                   if (mounted) {
+                     setState(() {}); // Rebuild to show characters in boxes
+                   }
                  },
                  decoration: const InputDecoration(
                    border: InputBorder.none,

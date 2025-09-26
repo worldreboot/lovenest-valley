@@ -73,9 +73,11 @@ class _AuthFlowScreenState extends State<AuthFlowScreen> {
           _hasSeenOnboarding = false;
         }
         
-        setState(() {
-          _isValidatingUser = false;
-        });
+        if (mounted) {
+          setState(() {
+            _isValidatingUser = false;
+          });
+        }
         return;
       }
       
@@ -106,7 +108,11 @@ class _AuthFlowScreenState extends State<AuthFlowScreen> {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
                 builder: (context) => PaywallScreen(
-                  onEntitled: () => setState(() {}),
+                  onEntitled: () {
+                    if (mounted) {
+                      setState(() {});
+                    }
+                  },
                 ),
               ),
             );
@@ -117,9 +123,11 @@ class _AuthFlowScreenState extends State<AuthFlowScreen> {
       debugPrint('[AuthFlowScreen] ❌ Error validating user: $e');
     }
     
-    setState(() {
-      _isValidatingUser = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isValidatingUser = false;
+      });
+    }
   }
 
   void _onOnboardingComplete() {

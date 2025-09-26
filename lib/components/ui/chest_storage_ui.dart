@@ -59,7 +59,7 @@ class _ChestStorageUIState extends State<ChestStorageUI> {
       // Initialize realtime for current user (couple or individual)
       await _chestService.initializeRealtimeForCurrentUser();
       _chestSub?.cancel();
-      _chestSub = _chestService.chestUpdates.listen((updated) async {
+      _chestSub = _chestService.chestUpdates?.listen((updated) async {
         if (!mounted) return;
         if (updated.id == _currentChest.id) {
           // Fetch authoritative state to avoid any payload shape/race issues
@@ -381,8 +381,7 @@ class _ChestStorageUIState extends State<ChestStorageUI> {
             _currentChest = _currentChest.removeItem(slotItem.id, quantity: 1);
           });
         } else {
-          final updated = await _chestService.removeItemFromChest(_currentChest.id, slotItem.id, quantity: 1);
-          setState(() => _currentChest = updated);
+          await _chestService.removeItemFromChest(_currentChest.id, slotItem.id, 1);
           // Ensure we render authoritative state from DB (handles concurrent partner updates)
           await _refreshChest();
         }
@@ -438,8 +437,7 @@ class _ChestStorageUIState extends State<ChestStorageUI> {
       if (_currentChest.syncStatus == 'local_only') {
         setState(() => _currentChest = _currentChest.addItem(item));
       } else {
-        final updated = await _chestService.addItemToChest(_currentChest.id, item);
-        setState(() => _currentChest = updated);
+        await _chestService.addItemToChest(_currentChest.id, item.id, 1);
         // Extra safety: fetch fresh from DB to avoid any race with optimistic locking
         await _refreshChest();
       }
@@ -481,8 +479,8 @@ class _ChestStorageUIState extends State<ChestStorageUI> {
         // Update locally only
         setState(() => _currentChest = _currentChest.addItem(item));
       } else {
-        final updated = await _chestService.addItemToChest(_currentChest.id, item);
-        setState(() => _currentChest = updated);
+        await _chestService.addItemToChest(_currentChest.id, item.id, 1);
+        await _refreshChest();
       }
 
       // Decrement inventory selected item by 1 (FIXED: was incorrectly removing entire item)
@@ -727,7 +725,7 @@ class _ChestStorageUIState extends State<ChestStorageUI> {
 
       final randomItem = testItems[DateTime.now().millisecond % testItems.length];
       
-      await _chestService.addItemToChest(widget.chest.id, randomItem);
+      await _chestService.addItemToChest(widget.chest.id, randomItem.id, 1);
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -799,7 +797,7 @@ class _ChestStorageUIState extends State<ChestStorageUI> {
         await _chestService.removeItemFromChest(
           widget.chest.id,
           item.id,
-          quantity: item.quantity,
+          item.quantity,
         );
       }
 

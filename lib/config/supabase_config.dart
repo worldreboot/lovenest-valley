@@ -38,9 +38,9 @@ class SupabaseConfig {
           
           // Check if there's an existing session
           try {
-            final currentUser = Supabase.instance.client.auth.currentUser;
-            if (currentUser != null) {
-              print('[SupabaseConfig] ✅ Found existing session for user: ${currentUser.id}');
+            final user = Supabase.instance.client.auth.currentUser;
+            if (user != null) {
+              print('[SupabaseConfig] ✅ Found existing session for user: ${user.id}');
               // Don't clear the session automatically - let the auth flow handle it
               _needsReauth = false;
             } else {
@@ -291,7 +291,78 @@ class SupabaseConfig {
   // Method to clear re-auth flag after successful sign-in
   static void clearReauthFlag() {
     _needsReauth = false;
-    print('[SupabaseConfig] ✅ Re-auth flag cleared');
+  }
+  
+  
+  // Enhanced authentication validation method
+  static Future<bool> isAuthenticated() async {
+    if (!_isOnline || _needsReauth) {
+      return false;
+    }
+    
+    try {
+      final user = currentUser;
+      if (user == null) {
+        return false;
+      }
+      
+      // Check if session is still valid
+      final session = client.auth.currentSession;
+      if (session == null || session.isExpired) {
+        print('[SupabaseConfig] ⚠️ Session expired or invalid');
+        _needsReauth = true;
+        return false;
+      }
+      
+      return true;
+    } catch (e) {
+      print('[SupabaseConfig] ⚠️ Error checking authentication: $e');
+      _needsReauth = true;
+      return false;
+    }
+  }
+  
+  // Safe database operation wrapper
+  static Future<T> safeDbOperation<T>(
+    Future<T> Function() operation, {
+    String? operationName,
+    T? fallbackValue,
+  }) async {
+    try {
+      // Check authentication first
+      if (!await isAuthenticated()) {
+        throw Exception('User not authenticated for ${operationName ?? 'database operation'}');
+      }
+      
+      return await operation();
+    } catch (e) {
+      if (e.toString().contains('PostgrestException') && 
+          e.toString().contains('Not authenticated')) {
+        print('[SupabaseConfig] ❌ Authentication error in ${operationName ?? 'database operation'}: $e');
+        _needsReauth = true;
+        throw Exception('Authentication required. Please sign in again.');
+      }
+      
+      // Re-throw other errors
+      rethrow;
+    }
+  }
+  
+  
+  // Check if user is authenticated and throw if not
+  static void requireAuthentication({String? operation}) {
+    if (!_isOnline) {
+      throw Exception('App is offline. Cannot perform ${operation ?? 'operation'}.');
+    }
+    
+    if (_needsReauth) {
+      throw Exception('Authentication required. Please sign in again.');
+    }
+    
+    final user = currentUser;
+    if (user == null) {
+      throw Exception('User not authenticated. Please sign in to ${operation ?? 'perform this action'}.');
+    }
   }
   
   // Method to clear all local authentication data

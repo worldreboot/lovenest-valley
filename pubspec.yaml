@@ -85,6 +85,7 @@ flutter:
     
     # Individual game assets
     - assets/images/owl.png
+    - assets/images/couple.png
     - assets/images/ground.png
     - assets/images/wood.png
     - assets/images/user.png
@@ -92,12 +93,23 @@ flutter:
     - assets/images/gift_1.png
     - assets/images/owl_noti.png
     - assets/images/bonfire.png
+    - assets/images/clouds.png
     
     # V1.5 Assets - Farm Expansion and Water Update
     - assets/images/V1.5/
     - assets/images/V1.5/Farm Expansion/
     - assets/images/V1.5/Farm Expansion/Crops/
     - assets/images/V1.5/Water Update/
+    
+    # Cute Fantasy Assets
+    - assets/Cute_Fantasy/
+    - assets/Cute_Fantasy/Weather effects/
+
+  # Fonts
+  fonts:
+    - family: GUMDROP
+      fonts:
+        - asset: assets/Wood UI/Font/GUMDROP.ttf
 
   # Shaders section - MUST be separate from assets
   shaders:

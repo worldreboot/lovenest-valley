@@ -49,14 +49,16 @@ final chestUpdatesProvider = StreamProvider<List<ChestStorage>>((ref) async* {
   yield initialChests;
   
   // Listen for updates
-  await for (final updatedChest in service.chestUpdates) {
-    // Update the specific chest in our list
-    final currentChests = await ref.read(chestsProvider.future);
-    final updatedChests = currentChests.map((chest) {
-      return chest.id == updatedChest.id ? updatedChest : chest;
-    }).toList();
-    
-    yield updatedChests;
+  if (service.chestUpdates != null) {
+    await for (final updatedChest in service.chestUpdates!) {
+      // Update the specific chest in our list
+      final currentChests = await ref.read(chestsProvider.future);
+      final updatedChests = currentChests.map((chest) {
+        return chest.id == updatedChest.id ? updatedChest : chest;
+      }).toList();
+      
+      yield updatedChests;
+    }
   }
 });
 
@@ -77,28 +79,29 @@ final createChestProvider = FutureProvider.family<ChestStorage, Map<String, dyna
 });
 
 // Add item to chest provider
-final addItemToChestProvider = FutureProvider.family<ChestStorage, Map<String, dynamic>>((ref, params) async {
+final addItemToChestProvider = FutureProvider.family<bool, Map<String, dynamic>>((ref, params) async {
   final service = ref.read(chestStorageServiceProvider);
   return await service.addItemToChest(
     params['chestId'] as String,
-    params['item'] as ChestItem,
+    (params['item'] as ChestItem).id,
+    params['quantity'] as int? ?? 1,
   );
 });
 
 // Remove item from chest provider
-final removeItemFromChestProvider = FutureProvider.family<ChestStorage, Map<String, dynamic>>((ref, params) async {
+final removeItemFromChestProvider = FutureProvider.family<bool, Map<String, dynamic>>((ref, params) async {
   final service = ref.read(chestStorageServiceProvider);
   return await service.removeItemFromChest(
     params['chestId'] as String,
     params['itemId'] as String,
-    quantity: params['quantity'] as int? ?? 1,
+    params['quantity'] as int? ?? 1,
   );
 });
 
 // Nearby chests provider
 final nearbyChestsProvider = FutureProvider.family<List<ChestStorage>, Position>((ref, position) async {
   final service = ref.read(chestStorageServiceProvider);
-  return await service.findChestsNearPosition(position);
+  return await service.getChestsNearPosition(position, 5.0);
 });
 
 // Chest storage state notifier for managing local state
@@ -130,7 +133,7 @@ class ChestStorageNotifier extends StateNotifier<AsyncValue<List<ChestStorage>>>
       state = AsyncValue.data(chests);
       
       // Listen for real-time updates (if couple exists)
-      _service.chestUpdates.listen((updatedChest) {
+      _service.chestUpdates?.listen((updatedChest) {
         state.whenData((currentChests) {
           final updatedChests = currentChests.map((chest) {
             return chest.id == updatedChest.id ? updatedChest : chest;
@@ -167,14 +170,10 @@ class ChestStorageNotifier extends StateNotifier<AsyncValue<List<ChestStorage>>>
   
   Future<void> addItemToChest(String chestId, ChestItem item) async {
     try {
-      final updatedChest = await _service.addItemToChest(chestId, item);
+      await _service.addItemToChest(chestId, item.id, 1);
       
-      state.whenData((chests) {
-        final updatedChests = chests.map((chest) {
-          return chest.id == chestId ? updatedChest : chest;
-        }).toList();
-        state = AsyncValue.data(updatedChests);
-      });
+      // Refresh the chest data
+      await _initialize();
       
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);
@@ -183,14 +182,10 @@ class ChestStorageNotifier extends StateNotifier<AsyncValue<List<ChestStorage>>>
   
   Future<void> removeItemFromChest(String chestId, String itemId, {int quantity = 1}) async {
     try {
-      final updatedChest = await _service.removeItemFromChest(chestId, itemId, quantity: quantity);
+      await _service.removeItemFromChest(chestId, itemId, quantity);
       
-      state.whenData((chests) {
-        final updatedChests = chests.map((chest) {
-          return chest.id == chestId ? updatedChest : chest;
-        }).toList();
-        state = AsyncValue.data(updatedChests);
-      });
+      // Refresh the chest data
+      await _initialize();
       
     } catch (error, stackTrace) {
       state = AsyncValue.error(error, stackTrace);

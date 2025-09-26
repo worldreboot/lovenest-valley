@@ -427,7 +427,7 @@ class SimpleEnhancedFarmGame extends GameWithGrid with HasCollisionDetection, Ha
 
       // Listen for inserts/updates from partner and reflect them in the world
       _chestUpdatesSub?.cancel();
-      _chestUpdatesSub = service.chestUpdates.listen((updatedChest) async {
+      _chestUpdatesSub = service.chestUpdates?.listen((updatedChest) async {
         try {
           final gridX = updatedChest.position.x.toInt();
           final gridY = updatedChest.position.y.toInt();

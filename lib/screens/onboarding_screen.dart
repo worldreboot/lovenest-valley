@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:lovenest_valley/screens/menu_screen.dart';
-import 'package:lovenest_valley/screens/link_partner_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -270,26 +269,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                  ),
                ),
 
-               if (_currentPage == 0)
-                 Padding(
-                   padding: const EdgeInsets.only(bottom: 24.0),
-                   child: TextButton(
-                     onPressed: () {
-                       Navigator.of(context).push(
-                         MaterialPageRoute(
-                           builder: (_) => const LinkPartnerScreen(),
-                         ),
-                       );
-                     },
-                     child: const Text(
-                       'I have an invite code',
-                       style: TextStyle(
-                         color: Colors.white,
-                         fontFamily: 'monospace',
-                       ),
-                     ),
-                   ),
-                 ),
             ],
           ),
         ),

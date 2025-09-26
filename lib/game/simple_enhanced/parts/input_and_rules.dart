@@ -155,6 +155,7 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
         if (couple != null) {
           // Persist chest under a valid couple ID (FK satisfied)
           storage = await ChestStorageService().createChest(
+            userId: userId!,
             coupleId: couple.id,
             position: Position(gridX.toDouble(), gridY.toDouble()),
             name: 'Chest',

@@ -12,16 +12,17 @@ class ShopService {
       iconEmoji: '🎁',
       properties: {'romance_bonus': 2, 'happiness_bonus': 1},
     ),
-    const ShopItem(
-      id: 'pet',
-      name: 'Pet',
-      description: 'A loyal companion that will follow you around and bring joy to your farm.',
-      type: ShopItemType.animal,
-      rarity: ShopItemRarity.rare,
-      price: 250,
-      iconEmoji: '🐕',
-      properties: {'companionship': true, 'happiness_bonus': 3, 'loyalty': true},
-    ),
+    // Temporarily hidden - pet feature not ready yet
+    // const ShopItem(
+    //   id: 'pet',
+    //   name: 'Pet',
+    //   description: 'A loyal companion that will follow you around and bring joy to your farm.',
+    //   type: ShopItemType.animal,
+    //   rarity: ShopItemRarity.rare,
+    //   price: 250,
+    //   iconEmoji: '🐕',
+    //   properties: {'companionship': true, 'happiness_bonus': 3, 'loyalty': true},
+    // ),
     const ShopItem(
       id: 'wedding_ring',
       name: 'Wedding Ring',

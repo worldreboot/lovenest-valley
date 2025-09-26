@@ -18,175 +18,158 @@ class ChestStorageService {
   RealtimeChannel? _chestChannel;
   StreamController<ChestStorage>? _chestUpdatesController;
   String? _activeCoupleId;
-  
-  // Singleton pattern
-  static final ChestStorageService _instance = ChestStorageService._internal();
-  factory ChestStorageService() => _instance;
-  ChestStorageService._internal();
 
   /// Initialize real-time subscriptions for chest updates
-  Future<void> initializeRealtime(String coupleId) async {
-    debugPrint('[ChestStorageService] Initializing real-time for couple: $coupleId');
-    // Idempotent: keep a single controller and avoid breaking existing listeners
-    _chestUpdatesController ??= StreamController<ChestStorage>.broadcast();
-
-    // If already initialized for this couple, do nothing
-    if (_activeCoupleId == coupleId && _chestChannel != null) {
-      return;
-    }
-
-    // If switching couples, clean up previous channel
-    try {
-      await _chestChannel?.unsubscribe();
-    } catch (_) {}
-
-    _activeCoupleId = coupleId;
-    _chestChannel = _client.channel('chest_storage_$coupleId');
-    
-    _chestChannel!.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: _tableName,
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'couple_id',
-        value: coupleId,
-      ),
-      callback: _handleChestChange,
-    );
-    
-    await _chestChannel!.subscribe();
-    debugPrint('[ChestStorageService] Real-time subscription active for couple chests');
-  }
-
-  /// Initialize real-time subscriptions for individual user chest updates
-  Future<void> initializeRealtimeForUser(String userId) async {
-    debugPrint('[ChestStorageService] Initializing real-time for individual user: $userId');
-    // Idempotent: keep a single controller and avoid breaking existing listeners
-    _chestUpdatesController ??= StreamController<ChestStorage>.broadcast();
-
-    // If already initialized for this user, do nothing
-    if (_activeCoupleId == 'user_$userId' && _chestChannel != null) {
-      return;
-    }
-
-    // If switching users, clean up previous channel
-    try {
-      await _chestChannel?.unsubscribe();
-    } catch (_) {}
-
-    _activeCoupleId = 'user_$userId';
-    _chestChannel = _client.channel('chest_storage_user_$userId');
-    
-    _chestChannel!.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: _tableName,
-      filter: PostgresChangeFilter(
-        type: PostgresChangeFilterType.eq,
-        column: 'user_id',
-        value: userId,
-      ),
-      callback: _handleChestChange,
-    );
-    
-    await _chestChannel!.subscribe();
-    debugPrint('[ChestStorageService] Real-time subscription active for individual user chests');
-  }
-
-  /// Initialize real-time for the current user's chests (couple or individual)
   Future<void> initializeRealtimeForCurrentUser() async {
+    final userId = SupabaseConfig.currentUserId;
+    if (userId == null) return;
+  }
+
+  /// Initialize real-time subscriptions for a specific couple
+  Future<void> initializeRealtime(String coupleId) async {
+    try {
+      // Only initialize if we have a new couple ID
+      if (_activeCoupleId == coupleId) return;
+      _activeCoupleId = coupleId;
+
+      // Clean up existing subscription
+      await _chestChannel?.unsubscribe();
+      _chestUpdatesController?.close();
+
+      // Create new stream controller
+      _chestUpdatesController = StreamController<ChestStorage>.broadcast();
+
+      // Subscribe to real-time updates for this couple's chests
+      _chestChannel = _client
+          .channel('chest_updates_$coupleId')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: _tableName,
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'couple_id',
+              value: coupleId,
+            ),
+            callback: (payload) async {
+              debugPrint('[ChestStorageService] Real-time update received: ${payload.eventType}');
+              
+              if (payload.newRecord != null) {
+                try {
+                  final chest = ChestStorage.fromJson(payload.newRecord);
+                  _chestUpdatesController?.add(chest);
+                } catch (e) {
+                  debugPrint('[ChestStorageService] Error parsing real-time update: $e');
+                }
+              }
+            },
+          );
+
+      await _chestChannel?.subscribe();
+      debugPrint('[ChestStorageService] Real-time subscription initialized for couple: $coupleId');
+    } catch (e) {
+      debugPrint('[ChestStorageService] Error initializing real-time: $e');
+    }
+  }
+
+  /// Initialize real-time subscriptions for current user (legacy method)
+  Future<void> initializeRealtimeForCurrentUserLegacy() async {
     final userId = SupabaseConfig.currentUserId;
     if (userId == null) return;
 
     try {
-      // Check if user is in a couple
+      // Get user's couple
       final couple = await GardenRepository().getUserCouple();
-      if (couple != null) {
-        // Initialize for couple chests
-        await initializeRealtime(couple.id);
-      } else {
-        // Initialize for individual user chests
-        await initializeRealtimeForUser(userId);
-      }
+      if (couple == null) return;
+
+      // Only initialize if we have a new couple ID
+      if (_activeCoupleId == couple.id) return;
+      _activeCoupleId = couple.id;
+
+      // Clean up existing subscription
+      await _chestChannel?.unsubscribe();
+      _chestUpdatesController?.close();
+
+      // Create new stream controller
+      _chestUpdatesController = StreamController<ChestStorage>.broadcast();
+
+      // Subscribe to real-time updates for this couple's chests
+      _chestChannel = _client
+          .channel('chest_updates_${couple.id}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: _tableName,
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'couple_id',
+              value: couple.id,
+            ),
+            callback: (payload) async {
+              debugPrint('[ChestStorageService] Real-time update received: ${payload.eventType}');
+              
+              if (payload.newRecord != null) {
+                try {
+                  final chest = ChestStorage.fromJson(payload.newRecord);
+                  _chestUpdatesController?.add(chest);
+                } catch (e) {
+                  debugPrint('[ChestStorageService] Error parsing real-time update: $e');
+                }
+              }
+            },
+          );
+
+      await _chestChannel?.subscribe();
+      debugPrint('[ChestStorageService] Real-time subscription initialized for couple: ${couple.id}');
     } catch (e) {
-      debugPrint('[ChestStorageService] Error initializing real-time for current user: $e');
+      debugPrint('[ChestStorageService] Error initializing real-time: $e');
     }
   }
 
-  /// Handle real-time chest updates
-  void _handleChestChange(PostgresChangePayload payload) {
-    try {
-      debugPrint('[ChestStorageService] Received chest update: ${payload.eventType}');
+  /// Get stream of chest updates
+  Stream<ChestStorage>? get chestUpdates => _chestUpdatesController?.stream;
+  
+  /// Get stream of chest updates (non-nullable for compatibility)
+  Stream<ChestStorage> get chestUpdatesStream => _chestUpdatesController?.stream ?? const Stream.empty();
 
-      if (payload.eventType == PostgresChangeEvent.insert ||
-          payload.eventType == PostgresChangeEvent.update) {
-        final record = payload.newRecord;
-        if (record['type'] == _chestType) {
-          final chest = ChestStorage.fromJson(record);
-          _chestUpdatesController?.add(chest);
-        }
-      } else if (payload.eventType == PostgresChangeEvent.delete) {
-        debugPrint('[ChestStorageService] Chest deleted');
-      }
-    } catch (e) {
-      debugPrint('[ChestStorageService] Error handling chest change: $e');
-    }
-  }
-
-  /// Stream of chest updates from other users
-  Stream<ChestStorage> get chestUpdates {
-    if (_chestUpdatesController == null) {
-      throw Exception('ChestStorageService not initialized. Call initializeRealtime() first.');
-    }
-    return _chestUpdatesController!.stream;
-  }
-
-  /// Create a new chest at the specified position
+  /// Create a new chest
   Future<ChestStorage> createChest({
-    String? coupleId, // Optional - for couple-owned chests
-    String? userId, // Optional - for individual user chests
+    required String userId,
     required Position position,
     String? name,
     int maxCapacity = 20,
+    String? coupleId,
   }) async {
-    debugPrint('[ChestStorageService] Creating chest at position: $position');
-    
-    // Ensure either coupleId OR userId is provided, but not both
-    if ((coupleId == null && userId == null) || (coupleId != null && userId != null)) {
-      throw Exception('Chest must be owned by either a couple OR an individual user, not both or neither');
-    }
-    
-    final chest = ChestStorage(
-      id: _uuid.v4(),
-      coupleId: coupleId,
-      userId: userId,
-      position: position,
-      items: [],
-      maxCapacity: maxCapacity,
-      name: name,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      version: 1,
-      syncStatus: 'synced',
+    return await SupabaseConfig.safeDbOperation(
+      () async {
+        final chest = ChestStorage(
+          id: _uuid.v4(),
+          userId: userId,
+          coupleId: coupleId,
+          position: position,
+          name: name ?? 'Chest',
+          maxCapacity: maxCapacity,
+          items: <ChestItem>[],
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          version: 1,
+          syncStatus: 'synced',
+        );
+
+        final chestData = chest.toJson();
+        chestData['last_updated_by'] = SupabaseConfig.currentUserId;
+
+        final response = await _client
+            .from(_tableName)
+            .insert(chestData)
+            .select()
+            .single();
+
+        debugPrint('[ChestStorageService] Chest created successfully');
+        return ChestStorage.fromJson(response);
+      },
+      operationName: 'create chest',
     );
-
-    final chestData = chest.toJson();
-    chestData['last_updated_by'] = SupabaseConfig.currentUserId;
-
-    try {
-      final response = await _client
-          .from(_tableName)
-          .insert(chestData)
-          .select()
-          .single();
-
-      debugPrint('[ChestStorageService] Chest created successfully');
-      return ChestStorage.fromJson(response);
-    } catch (e) {
-      debugPrint('[ChestStorageService] Error creating chest: $e');
-      rethrow;
-    }
   }
 
   /// Create a chest for the current user (automatically determines ownership)
@@ -195,245 +178,286 @@ class ChestStorageService {
     String? name,
     int maxCapacity = 20,
   }) async {
-    final currentUserId = SupabaseConfig.currentUserId;
-    if (currentUserId == null) {
-      throw Exception('User not authenticated');
-    }
+    return await SupabaseConfig.safeDbOperation(
+      () async {
+        final currentUserId = SupabaseConfig.currentUserId;
+        if (currentUserId == null) {
+          throw Exception('User not authenticated');
+        }
 
-    try {
-      // Check if user is in a couple
-      final couple = await GardenRepository().getUserCouple();
-      if (couple != null) {
-        // Create couple-owned chest
-        return await createChest(
-          coupleId: couple.id,
-          position: position,
-          name: name,
-          maxCapacity: maxCapacity,
-        );
-      } else {
-        // Create individual user chest
-        return await createChest(
-          userId: currentUserId,
-          position: position,
-          name: name,
-          maxCapacity: maxCapacity,
-        );
-      }
-    } catch (e) {
-      debugPrint('[ChestStorageService] Error creating chest for current user: $e');
-      rethrow;
-    }
+        try {
+          // Check if user is in a couple
+          final couple = await GardenRepository().getUserCouple();
+          if (couple != null) {
+            // Create couple chest
+            return await createChest(
+              userId: currentUserId,
+              coupleId: couple.id,
+              position: position,
+              name: name,
+              maxCapacity: maxCapacity,
+            );
+          } else {
+            // Create individual user chest
+            return await createChest(
+              userId: currentUserId,
+              position: position,
+              name: name,
+              maxCapacity: maxCapacity,
+            );
+          }
+        } catch (e) {
+          debugPrint('[ChestStorageService] Error creating chest for current user: $e');
+          rethrow;
+        }
+      },
+      operationName: 'create chest for current user',
+    );
   }
 
   /// Get all chests for a couple
   Future<List<ChestStorage>> getChests(String coupleId) async {
     debugPrint('[ChestStorageService] Fetching chests for couple: $coupleId');
     
-    try {
-      final response = await _client
-          .from(_tableName)
-          .select()
-          .eq('couple_id', coupleId)
-          .eq('type', _chestType)
-          .order('created_at');
+    return await SupabaseConfig.safeDbOperation(
+      () async {
+        final response = await _client
+            .from(_tableName)
+            .select()
+            .eq('couple_id', coupleId)
+            .eq('type', _chestType)
+            .order('created_at');
 
-      final chests = response.map<ChestStorage>((json) => ChestStorage.fromJson(json)).toList();
-      debugPrint('[ChestStorageService] Found ${chests.length} chests');
-      return chests;
-    } catch (e) {
-      debugPrint('[ChestStorageService] Error fetching chests: $e');
-      rethrow;
-    }
+        final chests = response.map<ChestStorage>((json) => ChestStorage.fromJson(json)).toList();
+        debugPrint('[ChestStorageService] Found ${chests.length} chests');
+        return chests;
+      },
+      operationName: 'get chests for couple',
+    );
   }
 
   /// Get all chests for an individual user (when not in a couple)
   Future<List<ChestStorage>> getUserChests(String userId) async {
     debugPrint('[ChestStorageService] Fetching chests for individual user: $userId');
     
-    try {
-      final response = await _client
-          .from(_tableName)
-          .select()
-          .eq('user_id', userId)
-          .eq('type', _chestType)
-          .order('created_at');
+    return await SupabaseConfig.safeDbOperation(
+      () async {
+        final response = await _client
+            .from(_tableName)
+            .select()
+            .eq('user_id', userId)
+            .eq('type', _chestType)
+            .order('created_at');
 
-      final chests = response.map<ChestStorage>((json) => ChestStorage.fromJson(json)).toList();
-      debugPrint('[ChestStorageService] Found ${chests.length} individual user chests');
-      return chests;
-    } catch (e) {
-      debugPrint('[ChestStorageService] Error fetching individual user chests: $e');
-      rethrow;
-    }
+        final chests = response.map<ChestStorage>((json) => ChestStorage.fromJson(json)).toList();
+        debugPrint('[ChestStorageService] Found ${chests.length} individual user chests');
+        return chests;
+      },
+      operationName: 'get user chests',
+    );
   }
 
   /// Get all chests for the current user (couple or individual)
   Future<List<ChestStorage>> getCurrentUserChests() async {
-    final userId = SupabaseConfig.currentUserId;
-    if (userId == null) return [];
+    return await SupabaseConfig.safeDbOperation(
+      () async {
+        final userId = SupabaseConfig.currentUserId;
+        if (userId == null) return [];
 
-    try {
-      // First try to get couple chests
-      final couple = await GardenRepository().getUserCouple();
-      if (couple != null) {
-        return await getChests(couple.id);
-      } else {
-        // Fallback to individual user chests
-        return await getUserChests(userId);
-      }
-    } catch (e) {
-      debugPrint('[ChestStorageService] Error getting current user chests: $e');
-      return [];
-    }
+        try {
+          // First try to get couple chests
+          final couple = await GardenRepository().getUserCouple();
+          if (couple != null) {
+            return await getChests(couple.id);
+          } else {
+            // Fallback to individual user chests
+            return await getUserChests(userId);
+          }
+        } catch (e) {
+          debugPrint('[ChestStorageService] Error getting current user chests: $e');
+          return [];
+        }
+      },
+      operationName: 'get current user chests',
+    );
   }
 
   /// Get a specific chest by ID
   Future<ChestStorage?> getChest(String chestId) async {
     debugPrint('[ChestStorageService] Fetching chest: $chestId');
     
-    try {
-      final response = await _client
-          .from(_tableName)
-          .select()
-          .eq('id', chestId)
-          .eq('type', _chestType)
-          .maybeSingle();
+    return await SupabaseConfig.safeDbOperation(
+      () async {
+        final response = await _client
+            .from(_tableName)
+            .select()
+            .eq('id', chestId)
+            .eq('type', _chestType)
+            .maybeSingle();
 
-      if (response == null) {
-        debugPrint('[ChestStorageService] Chest not found: $chestId');
-        return null;
-      }
+        if (response == null) {
+          debugPrint('[ChestStorageService] Chest not found: $chestId');
+          return null;
+        }
 
-      return ChestStorage.fromJson(response);
-    } catch (e) {
-      debugPrint('[ChestStorageService] Error fetching chest: $e');
-      rethrow;
-    }
+        return ChestStorage.fromJson(response);
+      },
+      operationName: 'get chest by ID',
+    );
   }
 
   /// Update chest contents with optimistic locking
   Future<ChestStorage> updateChest(ChestStorage chest) async {
     debugPrint('[ChestStorageService] Updating chest: ${chest.id}');
     
-    final updatedChest = chest.copyWith(
-      updatedAt: DateTime.now(),
-      version: chest.version + 1,
+    return await SupabaseConfig.safeDbOperation(
+      () async {
+        final updatedChest = chest.copyWith(
+          updatedAt: DateTime.now(),
+          version: chest.version + 1,
+          syncStatus: 'synced',
+        );
+
+        final chestData = updatedChest.toJson();
+        chestData['last_updated_by'] = SupabaseConfig.currentUserId;
+
+        final response = await _client
+            .from(_tableName)
+            .update(chestData)
+            .eq('id', chest.id)
+            .eq('version', chest.version) // Optimistic locking
+            .select()
+            .maybeSingle();
+
+        if (response == null) {
+          throw Exception('Chest update failed - version conflict or chest not found');
+        }
+
+        debugPrint('[ChestStorageService] Chest updated successfully');
+        return ChestStorage.fromJson(response);
+      },
+      operationName: 'update chest',
     );
-
-    final chestData = updatedChest.toJson();
-    chestData['last_updated_by'] = SupabaseConfig.currentUserId;
-
-    try {
-      final response = await _client
-          .from(_tableName)
-          .update(chestData)
-          .eq('id', chest.id)
-          .eq('version', chest.version) // Optimistic locking
-          .select()
-          .maybeSingle();
-
-      if (response == null) {
-        // No rows matched: version mismatch or missing row
-        throw Exception('Chest was modified by another user or not found. Please refresh and try again.');
-      }
-
-      debugPrint('[ChestStorageService] Chest updated successfully');
-      final parsed = ChestStorage.fromJson(response);
-      // Emit locally so current client UIs update immediately (partner will get realtime)
-      try {
-        _chestUpdatesController?.add(parsed);
-      } catch (_) {}
-      return parsed;
-    } catch (e) {
-      debugPrint('[ChestStorageService] Error updating chest: $e');
-      rethrow;
-    }
-  }
-
-  /// Add an item to a chest
-  Future<ChestStorage> addItemToChest(String chestId, ChestItem item) async {
-    debugPrint('[ChestStorageService] Adding item to chest: $chestId');
-    
-    final chest = await getChest(chestId);
-    if (chest == null) {
-      throw Exception('Chest not found');
-    }
-
-    final updatedChest = chest.addItem(item);
-    return await updateChest(updatedChest);
-  }
-
-  /// Remove an item from a chest
-  Future<ChestStorage> removeItemFromChest(String chestId, String itemId, {int quantity = 1}) async {
-    debugPrint('[ChestStorageService] Removing item from chest: $chestId');
-    
-    final chest = await getChest(chestId);
-    if (chest == null) {
-      throw Exception('Chest not found');
-    }
-
-    final updatedChest = chest.removeItem(itemId, quantity: quantity);
-    return await updateChest(updatedChest);
-  }
-
-  /// Move items between chests
-  Future<void> moveItemsBetweenChests({
-    required String fromChestId,
-    required String toChestId,
-    required String itemId,
-    required int quantity,
-  }) async {
-    debugPrint('[ChestStorageService] Moving items between chests: $fromChestId -> $toChestId');
-    
-    // Use a transaction to ensure atomicity
-    await _client.rpc('move_items_between_chests', params: {
-      'from_chest_id': fromChestId,
-      'to_chest_id': toChestId,
-      'item_id': itemId,
-      'quantity': quantity,
-      'user_id': SupabaseConfig.currentUserId,
-    });
   }
 
   /// Delete a chest
-  Future<void> deleteChest(String chestId) async {
+  Future<bool> deleteChest(String chestId) async {
     debugPrint('[ChestStorageService] Deleting chest: $chestId');
     
-    try {
-      await _client
-          .from(_tableName)
-          .delete()
-          .eq('id', chestId)
-          .eq('type', _chestType);
+    return await SupabaseConfig.safeDbOperation(
+      () async {
+        await _client
+            .from(_tableName)
+            .delete()
+            .eq('id', chestId)
+            .eq('type', _chestType);
 
-      debugPrint('[ChestStorageService] Chest deleted successfully');
-    } catch (e) {
-      debugPrint('[ChestStorageService] Error deleting chest: $e');
-      rethrow;
-    }
+        debugPrint('[ChestStorageService] Chest deleted successfully');
+        return true;
+      },
+      operationName: 'delete chest',
+    );
   }
 
-  /// Find chests near a position (for interaction)
-  Future<List<ChestStorage>> findChestsNearPosition(Position position, {double radius = 50.0}) async {
-    debugPrint('[ChestStorageService] Finding chests near position: $position');
-    
-    try {
-      // Use a simple distance calculation for now
-      // In a real implementation, you might want to use PostGIS for better performance
-      final chests = await getCurrentUserChests();
-      
-      return chests.where((chest) {
-        final distance = _calculateDistance(position, chest.position);
-        return distance <= radius;
-      }).toList();
-    } catch (e) {
-      debugPrint('[ChestStorageService] Error finding nearby chests: $e');
-      rethrow;
-    }
+  /// Add item to chest
+  Future<bool> addItemToChest(String chestId, String itemId, int quantity) async {
+    return await SupabaseConfig.safeDbOperation(
+      () async {
+        // Get current chest
+        final chest = await getChest(chestId);
+        if (chest == null) return false;
+
+        // Add item to chest
+        final updatedItems = List<ChestItem>.from(chest.items);
+        final existingItemIndex = updatedItems.indexWhere((item) => item.id == itemId);
+        
+        if (existingItemIndex >= 0) {
+          // Update existing item quantity
+          final existingItem = updatedItems[existingItemIndex];
+          updatedItems[existingItemIndex] = existingItem.copyWith(
+            quantity: existingItem.quantity + quantity,
+          );
+        } else {
+          // Add new item
+          updatedItems.add(ChestItem(
+            id: itemId,
+            name: itemId, // Use itemId as name for now
+            quantity: quantity,
+          ));
+        }
+
+        final updatedChest = chest.copyWith(
+          items: updatedItems,
+          updatedAt: DateTime.now(),
+          version: chest.version + 1,
+        );
+
+        await updateChest(updatedChest);
+        return true;
+      },
+      operationName: 'add item to chest',
+    );
   }
 
-  /// Calculate distance between two points
+  /// Remove item from chest
+  Future<bool> removeItemFromChest(String chestId, String itemId, int quantity) async {
+    return await SupabaseConfig.safeDbOperation(
+      () async {
+        // Get current chest
+        final chest = await getChest(chestId);
+        if (chest == null) return false;
+
+        // Remove item from chest
+        final updatedItems = List<ChestItem>.from(chest.items);
+        final existingItemIndex = updatedItems.indexWhere((item) => item.id == itemId);
+        
+        if (existingItemIndex >= 0) {
+          final existingItem = updatedItems[existingItemIndex];
+          final newQuantity = (existingItem.quantity - quantity).clamp(0, double.infinity).toInt();
+          
+          if (newQuantity == 0) {
+            // Remove item completely
+            updatedItems.removeAt(existingItemIndex);
+          } else {
+            // Update quantity
+            updatedItems[existingItemIndex] = existingItem.copyWith(quantity: newQuantity);
+          }
+        }
+
+        final updatedChest = chest.copyWith(
+          items: updatedItems,
+          updatedAt: DateTime.now(),
+          version: chest.version + 1,
+        );
+
+        await updateChest(updatedChest);
+        return true;
+      },
+      operationName: 'remove item from chest',
+    );
+  }
+
+  /// Get chests near a position
+  Future<List<ChestStorage>> getChestsNearPosition(Position position, double radius) async {
+    return await SupabaseConfig.safeDbOperation(
+      () async {
+        final allChests = await getCurrentUserChests();
+        final nearbyChests = <ChestStorage>[];
+
+        for (final chest in allChests) {
+          final distance = _calculateDistance(position, chest.position);
+          if (distance <= radius) {
+            nearbyChests.add(chest);
+          }
+        }
+
+        return nearbyChests;
+      },
+      operationName: 'get chests near position',
+    );
+  }
+
+  /// Calculate distance between two positions
   double _calculateDistance(Position a, Position b) {
     final dx = a.x - b.x;
     final dy = a.y - b.y;
@@ -446,4 +470,4 @@ class ChestStorageService {
     _chestUpdatesController?.close();
     debugPrint('[ChestStorageService] Disposed');
   }
-} 
+}
