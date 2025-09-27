@@ -31,13 +31,7 @@ import 'package:lovenest_valley/widgets/coin_indicator.dart';
 import 'package:lovenest_valley/services/inventory_service.dart';
 import 'package:lovenest_valley/services/daily_question_seed_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:lovenest_valley/screens/feature_tour_overlay.dart';
-import 'package:lovenest_valley/screens/memory_garden/planting_sheet.dart';
-import 'package:lovenest_valley/models/relationship_goal.dart';
-import 'package:lovenest_valley/screens/relationship_goals_dialog.dart';
-import 'package:lovenest_valley/services/relationship_goal_service.dart';
-import 'package:lovenest_valley/components/ui/seed_sprite_preview.dart';
-
+import 'package:lovenest_valley/game/tutorial/game_tutorial_controller.dart';
 
 class GameScreen extends StatefulWidget {
   final String farmId;
@@ -57,9 +51,10 @@ class _GameScreenState extends State<GameScreen> {
   late final SimpleEnhancedFarmGame _farmGameInstance;
   late final FarmhouseInteriorGame _interiorGameInstance;
   bool _inInterior = false;
-  // Feature tour
-  bool _showFeatureTour = false;
-  int _tourIndex = 0;
+  // Interactive tutorial
+  bool _tutorialRunning = false;
+  String? _tutorialCaption;
+  GameTutorialController? _tutorialController;
 
   // Store pending daily question answer info
   Map<String, dynamic>? _pendingDailyQuestionAnswer;
@@ -67,12 +62,12 @@ class _GameScreenState extends State<GameScreen> {
   // Couple state
   bool _checkingCouple = true;
   bool _hasCouple = true;
-  
+
   // Mood and weather state
   WeatherCondition? _currentWeather;
   String? _coupleId;
   final MoodWeatherService _moodWeatherService = MoodWeatherService();
-  
+
   // Rain effect state - disabled for now
   double _rainIntensity = 0.0; // Rain disabled
 
@@ -80,7 +75,7 @@ class _GameScreenState extends State<GameScreen> {
   void initState() {
     super.initState();
     inventoryManager = InventoryManager();
-    
+
     _farmGameInstance = SimpleEnhancedFarmGame(
       farmId: widget.farmId,
       inventoryManager: inventoryManager,
@@ -101,8 +96,10 @@ class _GameScreenState extends State<GameScreen> {
         const int doorX = 19;
         const int doorY = 5;
         _farmGameInstance.player.position = Vector2(
-          (doorX * SimpleEnhancedFarmGame.tileSize) + (SimpleEnhancedFarmGame.tileSize / 2),
-          ((doorY + 1) * SimpleEnhancedFarmGame.tileSize) + (SimpleEnhancedFarmGame.tileSize / 2),
+          (doorX * SimpleEnhancedFarmGame.tileSize) +
+              (SimpleEnhancedFarmGame.tileSize / 2),
+          ((doorY + 1) * SimpleEnhancedFarmGame.tileSize) +
+              (SimpleEnhancedFarmGame.tileSize / 2),
         );
       },
       onItemUsed: (String itemId) {
@@ -112,7 +109,8 @@ class _GameScreenState extends State<GameScreen> {
             orElse: () => null,
           );
           if (woodItem != null && woodItem.quantity > 0) {
-            inventoryManager.removeItem(inventoryManager.slots.indexOf(woodItem));
+            inventoryManager
+                .removeItem(inventoryManager.slots.indexOf(woodItem));
           }
         }
       },
@@ -120,13 +118,13 @@ class _GameScreenState extends State<GameScreen> {
 
     // Initialize inventory from backend (FIXED: was missing this call)
     _initializeInventory();
-    
+
     // Game now handles starter items for new users
     _checkForUnplantedDailyQuestionSeed();
     _checkAndPromptCouple();
     _initializeMoodWeatherSystem();
     _checkPendingGiftDeliveries();
-    _maybeStartFeatureTour();
+    _maybeStartInteractiveTutorial();
     _checkAndPromptName();
   }
 
@@ -134,20 +132,61 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _initializeInventory() async {
     debugPrint('[GameScreen] 🔄 Initializing inventory from backend');
     await inventoryManager.initialize();
-    debugPrint('[GameScreen] 📊 Inventory after backend load: ${inventoryManager.slots.map((item) => item?.name ?? 'null').toList()}');
+    debugPrint(
+        '[GameScreen] 📊 Inventory after backend load: ${inventoryManager.slots.map((item) => item?.name ?? 'null').toList()}');
   }
 
-  Future<void> _maybeStartFeatureTour() async {
+  Future<void> _maybeStartInteractiveTutorial() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final seen = prefs.getBool('has_seen_feature_tour') ?? false;
-      if (!seen) {
+      final seen = prefs.getBool('has_completed_interactive_tutorial') ?? false;
+      if (seen || _tutorialRunning) {
+        return;
+      }
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _tutorialRunning = true;
+      });
+
+      _tutorialController ??= GameTutorialController(
+        game: _farmGameInstance,
+        inventoryManager: inventoryManager,
+        context: context,
+        isMounted: () => mounted,
+        onCaptionChanged: (caption) {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _tutorialCaption = caption;
+          });
+        },
+        onFinished: () {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _tutorialRunning = false;
+            _tutorialCaption = null;
+          });
+        },
+      );
+
+      await _tutorialController!.start();
+      await prefs.setBool('has_completed_interactive_tutorial', true);
+    } catch (e) {
+      debugPrint('[GameScreen] Tutorial setup error: $e');
+    } finally {
+      if (mounted && _tutorialRunning) {
         setState(() {
-          _showFeatureTour = true;
-          _tourIndex = 0;
+          _tutorialRunning = false;
+          _tutorialCaption = null;
         });
       }
-    } catch (_) {}
+    }
   }
 
   // Starter items are now handled by the game's _ensureStarterChest() method
@@ -156,7 +195,8 @@ class _GameScreenState extends State<GameScreen> {
     final answer = await QuestionService.getUnplantedDailyQuestionAnswer();
     if (answer != null) {
       // Add seed to inventory if not already present
-      final hasSeed = inventoryManager.slots.any((item) => item?.id == 'daily_question_seed');
+      final hasSeed = inventoryManager.slots
+          .any((item) => item?.id == 'daily_question_seed');
       if (!hasSeed) {
         inventoryManager.addItem(
           InventoryItem(
@@ -202,7 +242,7 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _checkAndPromptName() async {
     final userId = SupabaseConfig.currentUserId;
     if (userId == null) return;
-    
+
     final client = SupabaseConfig.client;
     final profile = await client
         .from('profiles')
@@ -210,12 +250,12 @@ class _GameScreenState extends State<GameScreen> {
         .eq('id', userId)
         .maybeSingle();
     String? name = profile != null ? profile['username'] as String? : null;
-    
+
     if (name == null || name.trim().isEmpty) {
       // Delay the prompt to let the game load first
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted) return;
-      
+
       final newName = await _showNameDialog();
       if (newName != null && newName.trim().isNotEmpty) {
         await client.from('profiles').upsert({
@@ -457,18 +497,19 @@ class _GameScreenState extends State<GameScreen> {
 
   Future<void> _initializeMoodWeatherSystem() async {
     if (!_hasCouple) return;
-    
+
     try {
       // Get couple ID
       final couple = await GardenRepository().getUserCouple();
       if (couple != null) {
         _coupleId = couple.id;
-        
+
         // Check if user has responded to today's mood prompt
         final userId = SupabaseConfig.currentUserId;
         if (userId != null && _coupleId != null) {
-          final hasResponded = await _moodWeatherService.hasUserRespondedToday(userId, _coupleId!);
-          
+          final hasResponded = await _moodWeatherService.hasUserRespondedToday(
+              userId, _coupleId!);
+
           if (!hasResponded) {
             // Show mood prompt after a short delay
             await Future.delayed(const Duration(seconds: 2));
@@ -477,7 +518,7 @@ class _GameScreenState extends State<GameScreen> {
             }
           }
         }
-        
+
         // Load current weather
         if (_coupleId != null) {
           final weather = await _moodWeatherService.getTodayWeather(_coupleId!);
@@ -495,7 +536,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _showMoodPrompt() {
     if (_coupleId == null) return;
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -519,7 +560,7 @@ class _GameScreenState extends State<GameScreen> {
 
   Future<void> _refreshWeather() async {
     if (_coupleId == null) return;
-    
+
     try {
       final weather = await _moodWeatherService.getTodayWeather(_coupleId!);
       if (mounted) {
@@ -538,9 +579,9 @@ class _GameScreenState extends State<GameScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Settings'),
         content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+            child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             ListTile(
               leading: const Icon(Icons.school),
               title: const Text('Onboarding'),
@@ -552,14 +593,17 @@ class _GameScreenState extends State<GameScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.tour),
-              title: const Text('Feature Tour'),
-              subtitle: const Text('Highlights: Questions, Blooms, Seashells, Bonfire'),
+              title: const Text('Replay Tutorial'),
+              subtitle: const Text('Watch the guided tour again'),
               onTap: () async {
                 Navigator.of(context).pop();
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove('has_completed_interactive_tutorial');
+                _tutorialController = null;
                 setState(() {
-                  _tourIndex = 0;
-                  _showFeatureTour = true;
+                  _tutorialCaption = null;
                 });
+                await _maybeStartInteractiveTutorial();
               },
             ),
 
@@ -580,7 +624,8 @@ class _GameScreenState extends State<GameScreen> {
                       'updated_at': DateTime.now().toIso8601String(),
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Name updated to: ${newName.trim()}')),
+                      SnackBar(
+                          content: Text('Name updated to: ${newName.trim()}')),
                     );
                   }
                 }
@@ -598,13 +643,16 @@ class _GameScreenState extends State<GameScreen> {
                       subtitle: Text('Loading...'),
                     );
                   }
-                  
+
                   final partnerProfile = snapshot.data;
                   if (partnerProfile != null) {
-                    final partnerName = partnerProfile['username'] as String? ?? 'Unknown';
-                    final partnerAvatar = partnerProfile['avatar_url'] as String?;
-                    final partnerCreatedAt = partnerProfile['created_at'] as String?;
-                    
+                    final partnerName =
+                        partnerProfile['username'] as String? ?? 'Unknown';
+                    final partnerAvatar =
+                        partnerProfile['avatar_url'] as String?;
+                    final partnerCreatedAt =
+                        partnerProfile['created_at'] as String?;
+
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Colors.pink.shade100,
@@ -616,14 +664,16 @@ class _GameScreenState extends State<GameScreen> {
                                   height: 32,
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) =>
-                                      const Icon(Icons.favorite, color: Colors.pink),
+                                      const Icon(Icons.favorite,
+                                          color: Colors.pink),
                                 ),
                               )
                             : const Icon(Icons.favorite, color: Colors.pink),
                       ),
                       title: Text('Partner: $partnerName'),
                       subtitle: partnerCreatedAt != null
-                          ? Text('Connected since ${_formatDate(partnerCreatedAt)}')
+                          ? Text(
+                              'Connected since ${_formatDate(partnerCreatedAt)}')
                           : const Text('Connected'),
                       onTap: () {
                         // Could show more partner details here
@@ -680,7 +730,7 @@ class _GameScreenState extends State<GameScreen> {
       final date = DateTime.parse(dateString);
       final now = DateTime.now();
       final difference = now.difference(date);
-      
+
       if (difference.inDays == 0) {
         return 'Today';
       } else if (difference.inDays == 1) {
@@ -711,7 +761,8 @@ class _GameScreenState extends State<GameScreen> {
             SizedBox(height: 8),
             Text('A cozy farming game for couples to grow memories together.'),
             SizedBox(height: 8),
-            Text('Build memories, plant seeds of love, and watch your relationship bloom!'),
+            Text(
+                'Build memories, plant seeds of love, and watch your relationship bloom!'),
           ],
         ),
         actions: [
@@ -729,7 +780,8 @@ class _GameScreenState extends State<GameScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Logout'),
-        content: const Text('Are you sure you want to log out? You will be returned to the sign-in screen.'),
+        content: const Text(
+            'Are you sure you want to log out? You will be returned to the sign-in screen.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -742,7 +794,8 @@ class _GameScreenState extends State<GameScreen> {
                 if (mounted) {
                   Navigator.of(context).pop(); // Close confirmation dialog
                   // Navigate back to auth flow
-                  Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                  Navigator.of(context)
+                      .pushNamedAndRemoveUntil('/', (route) => false);
                 }
               } catch (e) {
                 if (mounted) {
@@ -763,8 +816,6 @@ class _GameScreenState extends State<GameScreen> {
       ),
     );
   }
-  
-
 
   void _showOnboarding() {
     Navigator.of(context).push(
@@ -801,7 +852,8 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
   */
-  Future<void> _showInviteDialog(Map<String, dynamic> invite, String username) async {
+  Future<void> _showInviteDialog(
+      Map<String, dynamic> invite, String username) async {
     final client = SupabaseConfig.client;
     final inviterId = invite['inviter_id'] as String?;
     String inviterName = 'Your Partner';
@@ -826,10 +878,10 @@ class _GameScreenState extends State<GameScreen> {
             TextButton(
               onPressed: () async {
                 // Decline: update invite status
-                await client
-                    .from('farm_invites')
-                    .update({'status': 'declined', 'responded_at': DateTime.now().toIso8601String()})
-                    .eq('id', invite['id']);
+                await client.from('farm_invites').update({
+                  'status': 'declined',
+                  'responded_at': DateTime.now().toIso8601String()
+                }).eq('id', invite['id']);
                 Navigator.of(context).pop();
               },
               child: const Text('Decline'),
@@ -841,44 +893,48 @@ class _GameScreenState extends State<GameScreen> {
                   Navigator.of(context).pop();
                   return;
                 }
-                
+
                 try {
                   // Accept the couple invite (this will also connect to partner's farm)
                   final couple = await GardenRepository().acceptCoupleInvite(
                     inviterId: inviterId,
                     inviteId: invite['id'] as String,
                   );
-                  
-                  debugPrint('[GameScreen] Couple created successfully: ${couple.id}');
-                  
+
+                  debugPrint(
+                      '[GameScreen] Couple created successfully: ${couple.id}');
+
                   // Get the inviter's farm ID (the farm we should connect to)
                   final inviterFarm = await client
                       .from('farms')
                       .select('id')
                       .eq('owner_id', inviterId)
                       .maybeSingle();
-                  
+
                   if (inviterFarm != null) {
                     final inviterFarmId = inviterFarm['id'] as String;
-                    debugPrint('[GameScreen] Redirecting to partner farm: $inviterFarmId');
-                    
+                    debugPrint(
+                        '[GameScreen] Redirecting to partner farm: $inviterFarmId');
+
                     // Close the dialog and redirect to the partner's farm
                     if (mounted) {
                       Navigator.of(context).pop();
-                      
+
                       // Show success message
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Welcome to your shared farm! You can now see each other moving around in real-time.'),
+                          content: Text(
+                              'Welcome to your shared farm! You can now see each other moving around in real-time.'),
                           backgroundColor: Colors.green,
                           duration: Duration(seconds: 3),
                         ),
                       );
-                      
+
                       // Redirect to the partner's farm with real-time multiplayer enabled
                       Navigator.of(context).pushReplacement(
                         MaterialPageRoute(
-                          builder: (context) => GameScreen(farmId: inviterFarmId),
+                          builder: (context) =>
+                              GameScreen(farmId: inviterFarmId),
                         ),
                       );
                     }
@@ -922,7 +978,8 @@ class _GameScreenState extends State<GameScreen> {
 
   void _handlePlant(int gridX, int gridY) async {
     final selectedItem = inventoryManager.selectedItem;
-    if (selectedItem != null && selectedItem.id.startsWith('daily_question_seed')) {
+    if (selectedItem != null &&
+        selectedItem.id.startsWith('daily_question_seed')) {
       // If we already have an unplanted answer stored, plant it directly
       if (_pendingDailyQuestionAnswer != null) {
         final plotPosition = PlotPosition(gridX.toDouble(), gridY.toDouble());
@@ -936,7 +993,8 @@ class _GameScreenState extends State<GameScreen> {
           secretHope: '',
           questionId: questionId,
         );
-        await QuestionService.markDailyQuestionAnswerPlanted(answer['id'] as String, seed.id);
+        await QuestionService.markDailyQuestionAnswerPlanted(
+            answer['id'] as String, seed.id);
         inventoryManager.removeItem(inventoryManager.selectedSlotIndex);
         setState(() {
           _pendingDailyQuestionAnswer = null;
@@ -951,7 +1009,8 @@ class _GameScreenState extends State<GameScreen> {
         );
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Daily Question Seed planted! Water it to help it grow.'),
+            content:
+                Text('Daily Question Seed planted! Water it to help it grow.'),
             backgroundColor: Colors.green,
           ),
         );
@@ -993,7 +1052,8 @@ class _GameScreenState extends State<GameScreen> {
                   children: [
                     const Icon(Icons.psychology, color: Colors.orange),
                     const SizedBox(width: 8),
-                    const Text('Daily Question', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text('Daily Question',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -1022,46 +1082,63 @@ class _GameScreenState extends State<GameScreen> {
                     ElevatedButton(
                       onPressed: () async {
                         final answerText = controller.text.trim();
-                        debugPrint('[GameScreen] 🧪 onPlant (sheet) for ${question.id} at ($gridX,$gridY)');
+                        debugPrint(
+                            '[GameScreen] 🧪 onPlant (sheet) for ${question.id} at ($gridX,$gridY)');
                         // Reintroduce full planting flow
                         try {
                           // 1) Create seed in backend and link
-                          final ok = await DailyQuestionSeedService.plantDailyQuestionSeed(
+                          final ok = await DailyQuestionSeedService
+                              .plantDailyQuestionSeed(
                             questionId: question.id,
                             answer: answerText,
                             plotX: gridX,
                             plotY: gridY,
                             farmId: widget.farmId,
                           );
-                          debugPrint('[GameScreen] 🧪 plantDailyQuestionSeed result (sheet): $ok');
+                          debugPrint(
+                              '[GameScreen] 🧪 plantDailyQuestionSeed result (sheet): $ok');
                           if (!ok) {
                             Navigator.of(sheetCtx).pop(false);
                             return;
                           }
                           // 2) Consume the inventory seed
                           try {
-                            debugPrint('[GameScreen] 🧪 Removing inventory item for planted daily seed');
-                            inventoryManager.removeItem(inventoryManager.selectedSlotIndex);
+                            debugPrint(
+                                '[GameScreen] 🧪 Removing inventory item for planted daily seed');
+                            inventoryManager
+                                .removeItem(inventoryManager.selectedSlotIndex);
                           } catch (e, st) {
-                            debugPrint('[GameScreen] ❌ Error removing inventory item: $e\n$st');
+                            debugPrint(
+                                '[GameScreen] ❌ Error removing inventory item: $e\n$st');
                           }
                           // 3) Add planted seed visuals
                           try {
-                            final seedColor = SeedColorGenerator.generateSeedColor(question.id);
-                            debugPrint('[GameScreen] 🧪 Calling addPlantedSeed for daily_question_seed_${question.id}');
+                            final seedColor =
+                                SeedColorGenerator.generateSeedColor(
+                                    question.id);
+                            debugPrint(
+                                '[GameScreen] 🧪 Calling addPlantedSeed for daily_question_seed_${question.id}');
                             await _farmGameInstance.addPlantedSeed(
-                              gridX, gridY, 'daily_question_seed_${question.id}', 'planted', seedColor: seedColor,
+                              gridX,
+                              gridY,
+                              'daily_question_seed_${question.id}',
+                              'planted',
+                              seedColor: seedColor,
                             );
-                            debugPrint('[GameScreen] ✅ addPlantedSeed completed');
+                            debugPrint(
+                                '[GameScreen] ✅ addPlantedSeed completed');
                           } catch (e, st) {
-                            debugPrint('[GameScreen] ❌ addPlantedSeed failed (sheet): $e\n$st');
+                            debugPrint(
+                                '[GameScreen] ❌ addPlantedSeed failed (sheet): $e\n$st');
                           }
                           // Close sheet
                           FocusScope.of(sheetCtx).unfocus();
-                          await Future.delayed(const Duration(milliseconds: 50));
+                          await Future.delayed(
+                              const Duration(milliseconds: 50));
                           Navigator.of(sheetCtx).pop(true);
                         } catch (e, st) {
-                          debugPrint('[GameScreen] ❌ Plant flow failed: $e\n$st');
+                          debugPrint(
+                              '[GameScreen] ❌ Plant flow failed: $e\n$st');
                           Navigator.of(sheetCtx).pop(false);
                         }
                       },
@@ -1091,8 +1168,10 @@ class _GameScreenState extends State<GameScreen> {
     }
     try {
       // Persist seed to backend using farm_seeds system
-      await FarmTileService().plantSeed(widget.farmId, gridX, gridY, 'regular_seed');
-      await _farmGameInstance.addPlantedSeed(gridX, gridY, 'regular_seed', 'planted');
+      await FarmTileService()
+          .plantSeed(widget.farmId, gridX, gridY, 'regular_seed');
+      await _farmGameInstance.addPlantedSeed(
+          gridX, gridY, 'regular_seed', 'planted');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Memory planted! Water it to help it grow.'),
@@ -1102,7 +1181,8 @@ class _GameScreenState extends State<GameScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Failed to plant memory. Make sure you are next to tilled soil and have seeds selected.'),
+          content: Text(
+              'Failed to plant memory. Make sure you are next to tilled soil and have seeds selected.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -1113,82 +1193,92 @@ class _GameScreenState extends State<GameScreen> {
 
   void _handleOwlTap(Question question) async {
     debugPrint('[GameScreen] 🦉 Owl tapped for question: ${question.id}');
-    
+
     // Check if user has already collected this seed
-    final hasCollected = await DailyQuestionSeedCollectionService.hasUserCollectedSeed(question.id);
+    final hasCollected =
+        await DailyQuestionSeedCollectionService.hasUserCollectedSeed(
+            question.id);
     debugPrint('[GameScreen] 📊 Collection check result: $hasCollected');
-    
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => DailyQuestionLetterSheet(
         question: question,
-        onCollectSeed: hasCollected ? null : () async {
-          debugPrint('[GameScreen] 🌱 Collecting seed for question: ${question.id}');
-          
-          // Generate a unique color for this seed
-          final seedColor = SeedColorGenerator.generateSeedColor(question.id);
-          debugPrint('[GameScreen] 🎨 Generated seed color: $seedColor');
-          
-          // Check inventory capacity BEFORE backend collection
-          final uniqueSeedId = 'daily_question_seed_${question.id}';
-          final canAccept = inventoryManager.canAcceptItemId(uniqueSeedId);
-          if (!canAccept) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Inventory full! Free a slot before collecting.'),
-                backgroundColor: Colors.red,
-              ),
-            );
-            return;
-          }
+        onCollectSeed: hasCollected
+            ? null
+            : () async {
+                debugPrint(
+                    '[GameScreen] 🌱 Collecting seed for question: ${question.id}');
 
-          // Collect the seed in the backend only if inventory can accept it
-          final success = await DailyQuestionSeedCollectionService.collectDailyQuestionSeed(
-            questionId: question.id,
-            questionText: question.text,
-            answer: '', // Will be filled when user submits answer
-            seedColor: seedColor,
-          );
+                // Generate a unique color for this seed
+                final seedColor =
+                    SeedColorGenerator.generateSeedColor(question.id);
+                debugPrint('[GameScreen] 🎨 Generated seed color: $seedColor');
 
-          debugPrint('[GameScreen] 📦 Collection result: $success');
+                // Check inventory capacity BEFORE backend collection
+                final uniqueSeedId = 'daily_question_seed_${question.id}';
+                final canAccept =
+                    inventoryManager.canAcceptItemId(uniqueSeedId);
+                if (!canAccept) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          'Inventory full! Free a slot before collecting.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
 
-          if (!success) {
-            debugPrint('[GameScreen] ❌ Failed to collect seed');
-            return;
-          }
+                // Collect the seed in the backend only if inventory can accept it
+                final success = await DailyQuestionSeedCollectionService
+                    .collectDailyQuestionSeed(
+                  questionId: question.id,
+                  questionText: question.text,
+                  answer: '', // Will be filled when user submits answer
+                  seedColor: seedColor,
+                );
 
-          // Add or stack the seed (no const to satisfy runtime value)
-          await inventoryManager.addItem(
-            InventoryItem(
-              id: uniqueSeedId,
-              name: 'Daily Question Seed',
-              iconPath: 'assets/images/items/seeds.png',
-              itemColor: SeedColorGenerator.generateSeedColor(question.id),
-              quantity: 1,
-            ),
-          );
-          // Persist icon/tint in backend so reloads keep the same appearance
-          await InventoryService.updateItemAppearance(
-            itemId: uniqueSeedId,
-            iconPath: 'assets/images/items/seeds.png',
-            itemColor: SeedColorGenerator.generateSeedColor(question.id),
-          );
-          
-          // Close the modal bottom sheet after successful collection
-          Navigator.of(context).pop();
-          
-          // Update owl notification to hide it
-          _updateOwlNotification(question.id);
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Daily Question Seed collected!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        },
+                debugPrint('[GameScreen] 📦 Collection result: $success');
+
+                if (!success) {
+                  debugPrint('[GameScreen] ❌ Failed to collect seed');
+                  return;
+                }
+
+                // Add or stack the seed (no const to satisfy runtime value)
+                await inventoryManager.addItem(
+                  InventoryItem(
+                    id: uniqueSeedId,
+                    name: 'Daily Question Seed',
+                    iconPath: 'assets/images/items/seeds.png',
+                    itemColor:
+                        SeedColorGenerator.generateSeedColor(question.id),
+                    quantity: 1,
+                  ),
+                );
+                // Persist icon/tint in backend so reloads keep the same appearance
+                await InventoryService.updateItemAppearance(
+                  itemId: uniqueSeedId,
+                  iconPath: 'assets/images/items/seeds.png',
+                  itemColor: SeedColorGenerator.generateSeedColor(question.id),
+                );
+
+                // Close the modal bottom sheet after successful collection
+                Navigator.of(context).pop();
+
+                // Update owl notification to hide it
+                _updateOwlNotification(question.id);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Daily Question Seed collected!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
       ),
     );
   }
@@ -1197,12 +1287,15 @@ class _GameScreenState extends State<GameScreen> {
   void _updateOwlNotification(String questionId) async {
     try {
       // Check if user has collected this seed
-      final hasCollected = await DailyQuestionSeedCollectionService.hasUserCollectedSeed(questionId);
-      
+      final hasCollected =
+          await DailyQuestionSeedCollectionService.hasUserCollectedSeed(
+              questionId);
+
       // Update owl notification in the game instance
       if (_farmGameInstance != null) {
         await _farmGameInstance.updateOwlNotification(!hasCollected);
-        debugPrint('[GameScreen] 🦉 Updated owl notification: ${!hasCollected ? 'ON' : 'OFF'}');
+        debugPrint(
+            '[GameScreen] 🦉 Updated owl notification: ${!hasCollected ? 'ON' : 'OFF'}');
       }
     } catch (e) {
       debugPrint('[GameScreen] ❌ Error updating owl notification: $e');
@@ -1271,7 +1364,8 @@ class _GameScreenState extends State<GameScreen> {
               children: const [
                 Text('Debug Minimal UI is active'),
                 SizedBox(height: 8),
-                Text('If this screen stays visible after planting, the issue is in game rendering.'),
+                Text(
+                    'If this screen stays visible after planting, the issue is in game rendering.'),
               ],
             ),
           ),
@@ -1281,57 +1375,57 @@ class _GameScreenState extends State<GameScreen> {
     return Scaffold(
       body: Stack(
         children: [
-            // Sync due gifts (DB -> completed) on first build after init
-            Builder(builder: (ctx) {
-              Future.microtask(() => PendingGiftService.syncDueGifts());
-              return const SizedBox.shrink();
-            }),
-            // The game widget (swap between farm and interior)
-            if (!_inInterior)
-              GameWidget<SimpleEnhancedFarmGame>.controlled(
-                gameFactory: () => _farmGameInstance,
-              )
-            else
-              GameWidget<FarmhouseInteriorGame>.controlled(
-                gameFactory: () => _interiorGameInstance,
-              ),
-                         // Coin indicator (top-right)
-             const Positioned(
-               top: 12,
-               right: 12,
-               child: CoinIndicator(),
-             ),
-           
-           // Settings button overlay
-           Positioned(
-             top: 40,
-             left: 16,
-             child: SafeArea(
-               child: IconButton(
-                 onPressed: () {
-                   _showSettingsDialog();
-                 },
-                                   icon: const Text(
-                    '⚙️',
-                    style: TextStyle(
-                      fontSize: 28,
-                      color: Colors.white,
-                    ),
+          // Sync due gifts (DB -> completed) on first build after init
+          Builder(builder: (ctx) {
+            Future.microtask(() => PendingGiftService.syncDueGifts());
+            return const SizedBox.shrink();
+          }),
+          // The game widget (swap between farm and interior)
+          if (!_inInterior)
+            GameWidget<SimpleEnhancedFarmGame>.controlled(
+              gameFactory: () => _farmGameInstance,
+            )
+          else
+            GameWidget<FarmhouseInteriorGame>.controlled(
+              gameFactory: () => _interiorGameInstance,
+            ),
+          // Coin indicator (top-right)
+          const Positioned(
+            top: 12,
+            right: 12,
+            child: CoinIndicator(),
+          ),
+
+          // Settings button overlay
+          Positioned(
+            top: 40,
+            left: 16,
+            child: SafeArea(
+              child: IconButton(
+                onPressed: () {
+                  _showSettingsDialog();
+                },
+                icon: const Text(
+                  '⚙️',
+                  style: TextStyle(
+                    fontSize: 28,
+                    color: Colors.white,
                   ),
-                 style: IconButton.styleFrom(
-                   backgroundColor: Colors.black54,
-                   shape: const CircleBorder(),
-                   padding: const EdgeInsets.all(8),
-                 ),
-               ),
-             ),
-           ),
-           
-           // Weather display removed
-           // Right side buttons
-           Positioned(
-             top: 60,
-             right: 16,
+                ),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black54,
+                  shape: const CircleBorder(),
+                  padding: const EdgeInsets.all(8),
+                ),
+              ),
+            ),
+          ),
+
+          // Weather display removed
+          // Right side buttons
+          Positioned(
+            top: 60,
+            right: 16,
             child: SafeArea(
               child: Column(
                 children: [
@@ -1350,13 +1444,13 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                       );
                     },
-                                         icon: const Text(
-                       '🛍️',
-                       style: TextStyle(
-                         fontSize: 24,
-                         color: Colors.white,
-                       ),
-                     ),
+                    icon: const Text(
+                      '🛍️',
+                      style: TextStyle(
+                        fontSize: 24,
+                        color: Colors.white,
+                      ),
+                    ),
                     tooltip: 'Shop',
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.orange.shade600,
@@ -1381,29 +1475,29 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                       );
                     },
-                                         icon: const Stack(
-                       alignment: Alignment.center,
-                       children: [
-                         Text(
-                           '🎤',
-                           style: TextStyle(
-                             fontSize: 20,
-                             color: Colors.white,
-                           ),
-                         ),
-                         Positioned(
-                           right: -2,
-                           bottom: -2,
-                           child: Text(
-                             '➕',
-                             style: TextStyle(
-                               fontSize: 12,
-                               color: Colors.white,
-                             ),
-                           ),
-                         ),
-                       ],
-                     ),
+                    icon: const Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Text(
+                          '🎤',
+                          style: TextStyle(
+                            fontSize: 20,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Positioned(
+                          right: -2,
+                          bottom: -2,
+                          child: Text(
+                            '➕',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     tooltip: 'Record Audio Message',
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.blue.shade600,
@@ -1428,20 +1522,20 @@ class _GameScreenState extends State<GameScreen> {
                             onPressed: () async {
                               await showDialog(
                                 context: context,
-                            builder: (context) => GiftsInboxDialog(
-                              inventoryManager: inventoryManager,
-                              parentContext: context,
-                            ),
+                                builder: (context) => GiftsInboxDialog(
+                                  inventoryManager: inventoryManager,
+                                  parentContext: context,
+                                ),
                               );
                               setState(() {}); // refresh buttons
                             },
-                                                         icon: const Text(
-                               '🎁',
-                               style: TextStyle(
-                                 fontSize: 24,
-                                 color: Colors.white,
-                               ),
-                             ),
+                            icon: const Text(
+                              '🎁',
+                              style: TextStyle(
+                                fontSize: 24,
+                                color: Colors.white,
+                              ),
+                            ),
                             tooltip: 'Gifts Received',
                             style: IconButton.styleFrom(
                               backgroundColor: Colors.purple,
@@ -1453,11 +1547,13 @@ class _GameScreenState extends State<GameScreen> {
                             right: -2,
                             top: -2,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.red,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white, width: 1),
+                                border:
+                                    Border.all(color: Colors.white, width: 1),
                               ),
                               child: Text(
                                 badgeText,
@@ -1484,36 +1580,36 @@ class _GameScreenState extends State<GameScreen> {
                     },
                   ),
 
-                                     // Invite Partner button (if no couple) -> opens new LinkPartnerScreen
-                   if (!_hasCouple) ...[
-                     IconButton(
-                       onPressed: () async {
-                         if (!mounted) return;
-                         await Navigator.of(context).push(
-                           MaterialPageRoute(builder: (_) => const LinkPartnerScreen()),
-                         );
-                         // Re-check couple status when returning
-                         final after = await GardenRepository().getUserCouple();
-                         if (mounted) {
-                           setState(() {
-                             _hasCouple = after != null;
-                           });
-                         }
-                       },
-                                               icon: const Icon(
-                          Icons.person_add_alt_1,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                       tooltip: 'Invite Partner',
-                       style: IconButton.styleFrom(
-                         backgroundColor: Colors.pinkAccent,
-                         shape: const CircleBorder(),
-                         padding: const EdgeInsets.all(8),
-                       ),
-                     ),
-                   ],
-
+                  // Invite Partner button (if no couple) -> opens new LinkPartnerScreen
+                  if (!_hasCouple) ...[
+                    IconButton(
+                      onPressed: () async {
+                        if (!mounted) return;
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const LinkPartnerScreen()),
+                        );
+                        // Re-check couple status when returning
+                        final after = await GardenRepository().getUserCouple();
+                        if (mounted) {
+                          setState(() {
+                            _hasCouple = after != null;
+                          });
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.person_add_alt_1,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      tooltip: 'Invite Partner',
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.pinkAccent,
+                        shape: const CircleBorder(),
+                        padding: const EdgeInsets.all(8),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1533,222 +1629,47 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
 
-          if (_showFeatureTour)
-            FeatureTourOverlay(
-              steps: _buildTourSteps(),
-              currentIndex: _tourIndex,
-              onNext: () async {
-                final isLast = _tourIndex >= _buildTourSteps().length - 1;
-                if (isLast) {
-                  try {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool('has_seen_feature_tour', true);
-                  } catch (_) {}
-                  setState(() {
-                    _showFeatureTour = false;
-                  });
-                } else {
-                  setState(() {
-                    _tourIndex += 1;
-                  });
-                }
-              },
-              onSkip: () async {
-                try {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setBool('has_seen_feature_tour', true);
-                } catch (_) {}
-                setState(() {
-                  _showFeatureTour = false;
-                });
-              },
-              onTryNow: _handleTryNowForCurrentStep,
+          if (_tutorialCaption != null)
+            Positioned(
+              bottom: 120,
+              left: 0,
+              right: 0,
+              child: _TutorialCaptionBanner(text: _tutorialCaption!),
             ),
         ],
       ),
-
     );
   }
+}
 
-  List<FeatureTourStep> _buildTourSteps() {
-    Widget sandTileWithSeashell() {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        color: Colors.transparent,
-        child: Center(
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 160,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF0C6),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE6D8A8), width: 2),
-                  image: const DecorationImage(
-                    image: AssetImage('assets/images/Beach/Tiles/Tiles.png'),
-                    fit: BoxFit.cover,
-                    opacity: 0.25,
-                  ),
-                ),
-              ),
-              Image.asset('assets/images/seashell.png', width: 56, height: 56),
-            ],
+class _TutorialCaptionBanner extends StatelessWidget {
+  const _TutorialCaptionBanner({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      ignoring: true,
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.75),
+            borderRadius: BorderRadius.circular(18),
           ),
-        ),
-      );
-    }
-
-    Widget owlWithNoti() {
-      return Center(
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Image.asset('assets/images/owl.png', width: 72, height: 72),
-            Positioned(
-              right: -6,
-              top: -6,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.orange,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: const Icon(Icons.mail, size: 16, color: Colors.white),
-              ),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              height: 1.4,
             ),
-          ],
-        ),
-      );
-    }
-
-    Widget plantedSeedVisual() {
-      return Center(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            SeedSpritePreview(growthStage: 'planted', scale: 3.0),
-            SizedBox(width: 12),
-            SeedSpritePreview(growthStage: 'growing', scale: 3.0),
-            SizedBox(width: 12),
-            SeedSpritePreview(growthStage: 'fully_grown', scale: 3.0),
-          ],
-        ),
-      );
-    }
-
-    Widget bonfireVisual() {
-      return Center(
-        child: Image.asset('assets/images/bonfire.png', width: 80, height: 80),
-      );
-    }
-
-    return [
-      FeatureTourStep(
-        icon: Icons.psychology,
-        title: 'Daily Questions',
-        description: 'Answer a short prompt from the Owl to spark meaningful conversation. Plant your answer as a seed and watch it grow into a bloom.',
-        visual: owlWithNoti(),
-        tryNowLabel: 'Meet the Owl',
-      ),
-      FeatureTourStep(
-        icon: Icons.local_florist,
-        title: 'Memory Blooms',
-        description: 'Plant memories (text, voice, photo, or link). Water them together over days to grow beautiful blooms that reveal "secret hopes".',
-        visual: plantedSeedVisual(),
-        tryNowLabel: 'Plant a Memory',
-      ),
-      FeatureTourStep(
-        icon: Icons.mic,
-        title: 'Voice Notes (Seashells)',
-        description: 'Leave each other voice notes as seashells on the shore. Tap a shell to listen and feel closer, even when apart.',
-        visual: sandTileWithSeashell(),
-        tryNowLabel: 'Record a Voice Note',
-      ),
-      FeatureTourStep(
-        icon: Icons.local_fire_department,
-        title: 'Relationship Goals (Bonfire)',
-        description: 'Add shared goals to feed your bonfire. Every completed goal adds wood and makes the fire burn brighter.',
-        visual: bonfireVisual(),
-        tryNowLabel: 'Open Bonfire',
-      ),
-    ];
-  }
-
-  void _handleTryNowForCurrentStep() {
-    final step = _tourIndex;
-    switch (step) {
-      case 0:
-        // Daily Questions: tap Owl flow
-        QuestionService.fetchDailyQuestion().then((q) {
-          if (q != null) {
-            _handleOwlTap(q);
-          }
-        });
-        break;
-      case 1:
-        // Memory Blooms: open planting sheet at a safe default tile near player
-        final pos = PlotPosition(18, 8);
-        showModalBottomSheet<void>(
-          context: context,
-          isScrollControlled: true,
-          useSafeArea: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => PlantingSheet(
-            plotPosition: pos,
-            onPlant: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Memory planted! Water it to help it grow.'), backgroundColor: Colors.green),
-              );
-            },
           ),
-        );
-        break;
-      case 2:
-        // Voice Notes: open the audio record dialog
-        showDialog(
-          context: context,
-          builder: (_) => AudioRecordDialog(
-            onUploadComplete: (url) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Voice note uploaded! Look for a seashell.'), backgroundColor: Colors.green),
-              );
-            },
-          ),
-        );
-        break;
-      case 3:
-        // Relationship Goals: open bonfire goals dialog via component helper
-        RelationshipGoalService().getGoals(widget.farmId).then((goals) async {
-          final Map<RelationshipGoalCategory, List<RelationshipGoal>> byCat = {
-            for (final c in RelationshipGoalCategory.values) c: [],
-          };
-          for (final g in goals) {
-            byCat[g.category]!.add(g);
-          }
-          showDialog(
-            context: context,
-            builder: (_) => RelationshipGoalsDialog(
-              goalsByCategory: byCat,
-              onAddGoal: (text, category) async {
-                await RelationshipGoalService().addGoal(
-                  farmId: widget.farmId,
-                  text: text,
-                  category: category,
-                );
-              },
-              onToggleComplete: (id) async {
-                await RelationshipGoalService().completeGoal(
-                  farmId: widget.farmId,
-                  goalId: id,
-                );
-              },
-            ),
-          );
-        });
-        break;
-    }
+        ),
+      ),
+    );
   }
-} 
+}

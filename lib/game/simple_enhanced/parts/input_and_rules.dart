@@ -5,6 +5,9 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
     if (_isHoeAnimationPlaying || _isWateringCanAnimationPlaying) {
       return;
     }
+    if (!_userInputEnabled) {
+      return;
+    }
     final screenPos = event.canvasPosition;
     final worldPosition = coord.screenToWorld(
       screenPos,
@@ -12,54 +15,79 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
       camera.viewfinder.zoom,
       size,
     );
-    final grid = coord.worldToGrid(worldPosition, SimpleEnhancedFarmGame.tileSize);
+    final grid =
+        coord.worldToGrid(worldPosition, SimpleEnhancedFarmGame.tileSize);
     final gridX = grid.x;
     final gridY = grid.y;
-    
-              // Log tile tap coordinates
-          print('[SimpleEnhancedFarmGame] 👆 User tapped tile at coordinates ($gridX, $gridY)');
-          
-          // Log base and effective GIDs at the tapped tile
-          final effectiveGid = _tileRenderer.getEffectiveGidAt(gridX, gridY);
-          if (effectiveGid != null) {
-            int? baseGid;
-            if (_tileRenderer.groundTileData != null &&
-                gridY >= 0 && gridY < _tileRenderer.groundTileData!.length &&
-                gridX >= 0 && gridX < _tileRenderer.groundTileData![gridY].length) {
-              baseGid = _tileRenderer.groundTileData![gridY][gridX];
-            }
-            print('[SimpleEnhancedFarmGame] 🗺️ Tile GIDs at ($gridX, $gridY): base=${baseGid ?? 'n/a'}, effective=$effectiveGid');
-          } else {
-            print('[SimpleEnhancedFarmGame] ❌ Cannot access ground data at ($gridX, $gridY)');
-          }
-          
-          if (!_isValidTileIndex(gridX, gridY)) {
-            print('[SimpleEnhancedFarmGame] ❌ Invalid tile coordinates ($gridX, $gridY) - outside map bounds');
-            return;
-          }
-    if (_toolActions.isAdjacent(player.position, gridX, gridY) && _currentHoeState && _isTileTillable(gridX, gridY)) {
+
+    // Log tile tap coordinates
+    print(
+        '[SimpleEnhancedFarmGame] 👆 User tapped tile at coordinates ($gridX, $gridY)');
+
+    // Log base and effective GIDs at the tapped tile
+    final effectiveGid = _tileRenderer.getEffectiveGidAt(gridX, gridY);
+    if (effectiveGid != null) {
+      int? baseGid;
+      if (_tileRenderer.groundTileData != null &&
+          gridY >= 0 &&
+          gridY < _tileRenderer.groundTileData!.length &&
+          gridX >= 0 &&
+          gridX < _tileRenderer.groundTileData![gridY].length) {
+        baseGid = _tileRenderer.groundTileData![gridY][gridX];
+      }
+      print(
+          '[SimpleEnhancedFarmGame] 🗺️ Tile GIDs at ($gridX, $gridY): base=${baseGid ?? 'n/a'}, effective=$effectiveGid');
+    } else {
+      print(
+          '[SimpleEnhancedFarmGame] ❌ Cannot access ground data at ($gridX, $gridY)');
+    }
+
+    if (!_isValidTileIndex(gridX, gridY)) {
+      print(
+          '[SimpleEnhancedFarmGame] ❌ Invalid tile coordinates ($gridX, $gridY) - outside map bounds');
+      return;
+    }
+    if (_toolActions.isAdjacent(player.position, gridX, gridY) &&
+        _currentHoeState &&
+        _isTileTillable(gridX, gridY)) {
       _playHoeAnimation(gridX, gridY);
-    } else if (_toolActions.isAdjacent(player.position, gridX, gridY) && _currentHoeState && !_isTileTillable(gridX, gridY)) {
-    } else if (_toolActions.isAdjacent(player.position, gridX, gridY) && !_currentHoeState && !_currentWateringCanState && inventoryManager?.selectedItem == null) {
-    } else if (_toolActions.isAdjacent(player.position, gridX, gridY) && _currentWateringCanState) {
+    } else if (_toolActions.isAdjacent(player.position, gridX, gridY) &&
+        _currentHoeState &&
+        !_isTileTillable(gridX, gridY)) {
+    } else if (_toolActions.isAdjacent(player.position, gridX, gridY) &&
+        !_currentHoeState &&
+        !_currentWateringCanState &&
+        inventoryManager?.selectedItem == null) {
+    } else if (_toolActions.isAdjacent(player.position, gridX, gridY) &&
+        _currentWateringCanState) {
       // Only allow watering if there's a waterable seed on the tile
       final plant = _getPlantedSeedAt(gridX, gridY);
       if (plant != null && plant.growthStage != 'fully_grown') {
-        debugPrint('[SimpleEnhancedFarmGame] 🌱 Checking if can water seed at ($gridX, $gridY)');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] 🌱 Checking if can water seed at ($gridX, $gridY)');
         // Check if watering will succeed before playing animation
         if (await _canWaterTile(gridX, gridY)) {
           _playWateringCanAnimation(gridX, gridY);
         } else {
-          debugPrint('[SimpleEnhancedFarmGame] ❌ Cannot water seed at ($gridX, $gridY) - no animation played');
+          debugPrint(
+              '[SimpleEnhancedFarmGame] ❌ Cannot water seed at ($gridX, $gridY) - no animation played');
         }
         return;
       } else if (plant == null) {
-        debugPrint('[SimpleEnhancedFarmGame] ❌ No seed found at ($gridX, $gridY) - cannot water empty tile');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] ❌ No seed found at ($gridX, $gridY) - cannot water empty tile');
       } else if (plant.growthStage == 'fully_grown') {
-        debugPrint('[SimpleEnhancedFarmGame] ❌ Seed at ($gridX, $gridY) is already fully grown - cannot water');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] ❌ Seed at ($gridX, $gridY) is already fully grown - cannot water');
       }
-    } else if (_toolActions.isAdjacent(player.position, gridX, gridY) && !_currentHoeState && !_currentWateringCanState && inventoryManager?.selectedItem == null) {
-    } else if (_toolActions.isAdjacent(player.position, gridX, gridY) && !_currentHoeState && !_currentWateringCanState && inventoryManager?.selectedItem != null) {
+    } else if (_toolActions.isAdjacent(player.position, gridX, gridY) &&
+        !_currentHoeState &&
+        !_currentWateringCanState &&
+        inventoryManager?.selectedItem == null) {
+    } else if (_toolActions.isAdjacent(player.position, gridX, gridY) &&
+        !_currentHoeState &&
+        !_currentWateringCanState &&
+        inventoryManager?.selectedItem != null) {
       final selectedItem = inventoryManager!.selectedItem;
       if (selectedItem != null) {
         // Place gift if selected item is a gift
@@ -103,25 +131,27 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
 
     // Try to persist chest to backend - ensure a valid couple exists
     ChestStorage storage;
-    
+
     // Check if the selected chest has existing storage data (from being picked up)
     final selectedItem = inventoryManager?.selectedItem;
     if (selectedItem?.chestStorage != null) {
       // Reuse existing chest storage - preserve all items!
       storage = selectedItem!.chestStorage!;
-      debugPrint('[SimpleEnhancedFarmGame] 🔄 Reusing existing chest storage with ${storage.items.length} items');
-      
+      debugPrint(
+          '[SimpleEnhancedFarmGame] 🔄 Reusing existing chest storage with ${storage.items.length} items');
+
       // IMPORTANT: Clean up any existing chest objects at the old position BEFORE updating
       final oldPosition = selectedItem.chestStorage!.position;
       final oldGridX = oldPosition.x.toInt();
       final oldGridY = oldPosition.y.toInt();
-      
+
       // Remove any chest objects at the old position
       for (final c in world.children.query<ChestObject>()) {
         final cx = (c.position.x / SimpleEnhancedFarmGame.tileSize).floor();
         final cy = (c.position.y / SimpleEnhancedFarmGame.tileSize).floor();
         if (cx == oldGridX && cy == oldGridY) {
-          debugPrint('[SimpleEnhancedFarmGame] 🧹 Cleaning up old chest at ($oldGridX, $oldGridY) before moving to ($gridX, $gridY)');
+          debugPrint(
+              '[SimpleEnhancedFarmGame] 🧹 Cleaning up old chest at ($oldGridX, $oldGridY) before moving to ($gridX, $gridY)');
           c.removeFromParent();
           // Remove from old position tracking
           chestPositions.remove(GridPos(oldGridX, oldGridY));
@@ -129,7 +159,7 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
           break;
         }
       }
-      
+
       // Update the position for the new placement
       storage = storage.copyWith(
         position: Position(gridX.toDouble(), gridY.toDouble()),
@@ -140,9 +170,11 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
       if (storage.syncStatus != 'local_only') {
         try {
           storage = await ChestStorageService().updateChest(storage);
-          debugPrint('[SimpleEnhancedFarmGame] ✅ Persisted chest position to (${gridX}, ${gridY})');
+          debugPrint(
+              '[SimpleEnhancedFarmGame] ✅ Persisted chest position to (${gridX}, ${gridY})');
         } catch (e) {
-          debugPrint('[SimpleEnhancedFarmGame] ❌ Failed to persist chest position: $e');
+          debugPrint(
+              '[SimpleEnhancedFarmGame] ❌ Failed to persist chest position: $e');
         }
       }
     } else {
@@ -199,7 +231,8 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
       }
     }
 
-    final pos = Vector2(gridX * SimpleEnhancedFarmGame.tileSize, gridY * SimpleEnhancedFarmGame.tileSize);
+    final pos = Vector2(gridX * SimpleEnhancedFarmGame.tileSize,
+        gridY * SimpleEnhancedFarmGame.tileSize);
     final chest = ChestObject(
       position: pos,
       size: Vector2.all(SimpleEnhancedFarmGame.tileSize),
@@ -209,16 +242,17 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
       onPickUp: (chestId) async {
         // Only pick up if adjacent
         if (!_toolActions.isAdjacent(player.position, gridX, gridY)) return;
-        
+
         // Add chest back to inventory WITH its storage data preserved
         await inventoryManager?.addItem(InventoryItem(
           id: 'chest',
           name: 'Chest',
           iconPath: 'assets/images/Chests/1.png',
           quantity: 1,
-          chestStorage: storage, // Preserve the chest storage with all its items
+          chestStorage:
+              storage, // Preserve the chest storage with all its items
         ));
-        
+
         // Remove chest from world
         for (final c in world.children.query<ChestObject>()) {
           final cx = (c.position.x / SimpleEnhancedFarmGame.tileSize).floor();
@@ -228,14 +262,15 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
             break;
           }
         }
-        
+
         // Remove from chest positions and pathfinding grid
         chestPositions.remove(GridPos(gridX, gridY));
         _pathfindingGrid.setObstacle(gridX, gridY, false);
-        
+
         // IMPORTANT: Don't delete from backend - preserve the storage data
         // The chest storage will be reused when the chest is placed back down
-        debugPrint('[SimpleEnhancedFarmGame] 📦 Chest picked up with ${storage.items.length} items preserved');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] 📦 Chest picked up with ${storage.items.length} items preserved');
       },
     );
 
@@ -247,7 +282,8 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
     inventoryManager?.removeItem(inventoryManager!.selectedSlotIndex);
   }
 
-  Future<void> _placeGiftAt(int gridX, int gridY, InventoryItem giftItem) async {
+  Future<void> _placeGiftAt(
+      int gridX, int gridY, InventoryItem giftItem) async {
     // Avoid placing on occupied seed tile
     final existingPlant = _getPlantedSeedAt(gridX, gridY);
     if (existingPlant != null) return;
@@ -259,7 +295,8 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
       if (gx == gridX && gy == gridY) return;
     }
 
-    final pos = Vector2(gridX * SimpleEnhancedFarmGame.tileSize, gridY * SimpleEnhancedFarmGame.tileSize);
+    final pos = Vector2(gridX * SimpleEnhancedFarmGame.tileSize,
+        gridY * SimpleEnhancedFarmGame.tileSize);
     final size = Vector2.all(SimpleEnhancedFarmGame.tileSize * 1.5);
 
     final gift = GiftObject(
@@ -269,11 +306,16 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
       position: pos,
       size: size,
       tileSize: SimpleEnhancedFarmGame.tileSize,
-      isPlayerAdjacent: (x, y) => _toolActions.isAdjacent(player.position, x, y),
+      isPlayerAdjacent: (x, y) =>
+          _toolActions.isAdjacent(player.position, x, y),
       onPickUp: (id) async {
         // Only pick up if adjacent
         if (!_toolActions.isAdjacent(player.position, gridX, gridY)) return;
-        await inventoryManager?.addItem(InventoryItem(id: giftItem.id, name: giftItem.name, iconPath: giftItem.iconPath, quantity: 1));
+        await inventoryManager?.addItem(InventoryItem(
+            id: giftItem.id,
+            name: giftItem.name,
+            iconPath: giftItem.iconPath,
+            quantity: 1));
         // Find this gift component by tile and remove
         for (final g in world.children.query<GiftObject>()) {
           final gx = (g.position.x / SimpleEnhancedFarmGame.tileSize).floor();
@@ -303,7 +345,11 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
   }
 
   bool _isTileTillable(int gridX, int gridY) {
-    if (_tileData != null && gridX >= 0 && gridX < _tileData![0].length && gridY >= 0 && gridY < _tileData!.length) {
+    if (_tileData != null &&
+        gridX >= 0 &&
+        gridX < _tileData![0].length &&
+        gridY >= 0 &&
+        gridY < _tileData!.length) {
       final gid = _tileData![gridY][gridX];
       final properties = getTilePropertiesAt(gridX, gridY);
       if (properties != null && properties.containsKey('isTillable')) {
@@ -319,10 +365,12 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
 
   bool _isTileTilled(int gridX, int gridY) {
     if (_useVertexTerrainSystem) {
-      if (gridX >= 0 && gridX < SimpleEnhancedFarmGame.mapWidth - 1 && gridY >= 0 && gridY < SimpleEnhancedFarmGame.mapHeight - 1) {
+      if (gridX >= 0 &&
+          gridX < SimpleEnhancedFarmGame.mapWidth - 1 &&
+          gridY >= 0 &&
+          gridY < SimpleEnhancedFarmGame.mapHeight - 1) {
         final dirtId = _dirtTerrainId;
-        final bool isTilled =
-            mapVertexGrid[gridY][gridX] == dirtId &&
+        final bool isTilled = mapVertexGrid[gridY][gridX] == dirtId &&
             mapVertexGrid[gridY][gridX + 1] == dirtId &&
             mapVertexGrid[gridY + 1][gridX] == dirtId &&
             mapVertexGrid[gridY + 1][gridX + 1] == dirtId;
@@ -331,7 +379,11 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
         return false;
       }
     } else {
-      if (_tileData != null && gridX >= 0 && gridX < _tileData![0].length && gridY >= 0 && gridY < _tileData!.length) {
+      if (_tileData != null &&
+          gridX >= 0 &&
+          gridX < _tileData![0].length &&
+          gridY >= 0 &&
+          gridY < _tileData!.length) {
         final gid = _tileData![gridY][gridX];
         if (gid >= 27 && gid <= 35) {
           return true;
@@ -350,7 +402,11 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
   }
 
   bool _isTileWaterable(int gridX, int gridY) {
-    if (_tileData != null && gridX >= 0 && gridX < _tileData![0].length && gridY >= 0 && gridY < _tileData!.length) {
+    if (_tileData != null &&
+        gridX >= 0 &&
+        gridX < _tileData![0].length &&
+        gridY >= 0 &&
+        gridY < _tileData!.length) {
       final gid = _tileData![gridY][gridX];
       final properties = getTilePropertiesAt(gridX, gridY);
       if (gid >= 27 && gid <= 35) {
@@ -367,7 +423,9 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
           break;
         }
       }
-      if (properties != null && properties.containsKey('isTillable') && properties['isTillable'] == true) {
+      if (properties != null &&
+          properties.containsKey('isTillable') &&
+          properties['isTillable'] == true) {
         return true;
       }
       if (properties != null && properties.containsKey('isWaterable')) {
@@ -384,21 +442,24 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
       final plant = _getPlantedSeedAt(gridX, gridY);
       if (plant == null) {
         // No plant - don't allow watering empty tiles
-        debugPrint('[SimpleEnhancedFarmGame] ❌ No plant found at ($gridX, $gridY) - cannot water empty tile');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] ❌ No plant found at ($gridX, $gridY) - cannot water empty tile');
         return false;
       }
-      
+
       // Check if the plant is already fully grown
       if (plant.growthStage == 'fully_grown') {
-        debugPrint('[SimpleEnhancedFarmGame] ❌ Plant at ($gridX, $gridY) is already fully grown - cannot water');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] ❌ Plant at ($gridX, $gridY) is already fully grown - cannot water');
         return false;
       }
-      
+
       // For daily question seeds, check if both partners have answered
       if (plant.seedId.startsWith('daily_question_seed')) {
         // Get the question ID from the seed
-        final questionId = plant.seedId.replaceFirst('daily_question_seed_', '');
-        
+        final questionId =
+            plant.seedId.replaceFirst('daily_question_seed_', '');
+
         // Check farm_seed_answers table for this specific seed location
         final answersResponse = await SupabaseConfig.client
             .from('farm_seed_answers')
@@ -407,36 +468,43 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
             .eq('x', gridX)
             .eq('y', gridY)
             .eq('question_id', questionId);
-        
-        final answeredUserIds = answersResponse.map((row) => row['user_id'] as String).toSet();
+
+        final answeredUserIds =
+            answersResponse.map((row) => row['user_id'] as String).toSet();
         final currentUserId = SupabaseConfig.currentUserId;
-        
+
         if (currentUserId == null) {
           debugPrint('[SimpleEnhancedFarmGame] ❌ No current user ID');
           return false;
         }
-        
+
         // Get the couple to find the partner ID
         final couple = await GardenRepository().getUserCouple();
         if (couple == null) {
           debugPrint('[SimpleEnhancedFarmGame] ❌ No couple found');
           return false;
         }
-        
-        final partnerId = couple.user1Id == currentUserId ? couple.user2Id : couple.user1Id;
+
+        final partnerId =
+            couple.user1Id == currentUserId ? couple.user2Id : couple.user1Id;
         final hasMine = answeredUserIds.contains(currentUserId);
         final hasPartner = answeredUserIds.contains(partnerId);
-        
-        debugPrint('[SimpleEnhancedFarmGame] 🔍 Checking answers for question $questionId at ($gridX, $gridY)');
-        debugPrint('[SimpleEnhancedFarmGame] 🔍 Current user ($currentUserId): $hasMine');
-        debugPrint('[SimpleEnhancedFarmGame] 🔍 Partner ($partnerId): $hasPartner');
-        debugPrint('[SimpleEnhancedFarmGame] 🔍 All answered users: $answeredUserIds');
-        
+
+        debugPrint(
+            '[SimpleEnhancedFarmGame] 🔍 Checking answers for question $questionId at ($gridX, $gridY)');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] 🔍 Current user ($currentUserId): $hasMine');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] 🔍 Partner ($partnerId): $hasPartner');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] 🔍 All answered users: $answeredUserIds');
+
         if (!(hasMine && hasPartner)) {
-          debugPrint('[SimpleEnhancedFarmGame] ❌ Daily question seed at ($gridX, $gridY) cannot be watered - both partners must answer first');
+          debugPrint(
+              '[SimpleEnhancedFarmGame] ❌ Daily question seed at ($gridX, $gridY) cannot be watered - both partners must answer first');
           return false;
         }
-        
+
         // Check if enough time has passed since last watering (24 hours)
         final seedResponse = await SupabaseConfig.client
             .from('farm_seeds')
@@ -445,58 +513,69 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
             .eq('x', gridX)
             .eq('y', gridY)
             .maybeSingle();
-            
+
         if (seedResponse != null) {
           final lastWateredAt = seedResponse['last_watered_at'] as String?;
           if (lastWateredAt != null) {
             final lastWatered = DateTime.parse(lastWateredAt);
             final now = DateTime.now();
             final hoursSinceLastWater = now.difference(lastWatered).inHours;
-            
+
             // Must wait 24 hours between waterings
             if (hoursSinceLastWater < 24) {
               final remainingHours = 24 - hoursSinceLastWater;
-              debugPrint('[SimpleEnhancedFarmGame] ❌ Seed at ($gridX, $gridY) was watered recently - must wait $remainingHours more hours');
+              debugPrint(
+                  '[SimpleEnhancedFarmGame] ❌ Seed at ($gridX, $gridY) was watered recently - must wait $remainingHours more hours');
               return false;
             }
           }
         }
-        
-        debugPrint('[SimpleEnhancedFarmGame] ✅ Daily question seed at ($gridX, $gridY) can be watered');
+
+        debugPrint(
+            '[SimpleEnhancedFarmGame] ✅ Daily question seed at ($gridX, $gridY) can be watered');
         return true;
       }
-      
+
       // For regular seeds, check if enough time has passed since last watering
-      final seedState = await SeedService.getSeedState(plotX: gridX, plotY: gridY, farmId: farmId);
+      final seedState = await SeedService.getSeedState(
+          plotX: gridX, plotY: gridY, farmId: farmId);
       if (seedState == null) {
-        debugPrint('[SimpleEnhancedFarmGame] ❌ No seed state found at ($gridX, $gridY) - cannot water');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] ❌ No seed state found at ($gridX, $gridY) - cannot water');
         return false;
       }
-      
+
       final lastWateredAt = seedState['last_watered_at'] as String?;
       if (lastWateredAt != null) {
         final lastWatered = DateTime.parse(lastWateredAt);
         final now = DateTime.now();
         final hoursSinceLastWater = now.difference(lastWatered).inHours;
-        
+
         // Must wait 24 hours between waterings
         if (hoursSinceLastWater < 24) {
           final remainingHours = 24 - hoursSinceLastWater;
-          debugPrint('[SimpleEnhancedFarmGame] ❌ Seed at ($gridX, $gridY) was watered recently - must wait $remainingHours more hours');
+          debugPrint(
+              '[SimpleEnhancedFarmGame] ❌ Seed at ($gridX, $gridY) was watered recently - must wait $remainingHours more hours');
           return false;
         }
       }
-      
-      debugPrint('[SimpleEnhancedFarmGame] ✅ Seed at ($gridX, $gridY) can be watered');
+
+      debugPrint(
+          '[SimpleEnhancedFarmGame] ✅ Seed at ($gridX, $gridY) can be watered');
       return true;
     } catch (e) {
-      debugPrint('[SimpleEnhancedFarmGame] ❌ Error checking if can water tile: $e');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] ❌ Error checking if can water tile: $e');
       return false;
     }
   }
 
   Map<String, dynamic>? getTilePropertiesAt(int x, int y) {
-    if (_tileData != null && x >= 0 && x < _tileData![0].length && y >= 0 && y < _tileData!.length) {
+    if (_tileData != null &&
+        x >= 0 &&
+        x < _tileData![0].length &&
+        y >= 0 &&
+        y < _tileData!.length) {
       final gid = _tileData![y][x];
       if (gid >= 1 && gid <= 180) {
         final tileId = gid - 1;
@@ -509,5 +588,3 @@ extension InputAndRulesExtension on SimpleEnhancedFarmGame {
     return null;
   }
 }
-
-

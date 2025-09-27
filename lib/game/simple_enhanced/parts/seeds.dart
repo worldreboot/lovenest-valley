@@ -5,14 +5,17 @@ extension SeedsExtension on SimpleEnhancedFarmGame {
   static const bool kDisablePlantedSeedSprite = false;
   Future<void> _loadPlantedSeedsFromBackend() async {
     try {
-      debugPrint('[SimpleEnhancedFarmGame] 🔄 Loading planted seeds from backend...');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] 🔄 Loading planted seeds from backend...');
       if (_isUsingFreshTMXMap) {
-        debugPrint('[SimpleEnhancedFarmGame] ℹ️ Using fresh TMX-based map, skipping seed loading');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] ℹ️ Using fresh TMX-based map, skipping seed loading');
         return;
       }
       final farmTileService = FarmTileService();
       final plantedSeeds = await farmTileService.loadPlantedSeeds(farmId);
-      debugPrint('[SimpleEnhancedFarmGame] 📦 Found ${plantedSeeds.length} planted seeds in backend');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] 📦 Found ${plantedSeeds.length} planted seeds in backend');
       for (final seedData in plantedSeeds) {
         final x = seedData['x'] as int;
         final y = seedData['y'] as int;
@@ -31,32 +34,42 @@ extension SeedsExtension on SimpleEnhancedFarmGame {
           if (questionId != null) {
             seedColor = SeedColorGenerator.generateSeedColor(questionId);
           }
-          debugPrint('[SimpleEnhancedFarmGame] 🌱 Daily question seed ID: $seedId, Color: $seedColor');
+          debugPrint(
+              '[SimpleEnhancedFarmGame] 🌱 Daily question seed ID: $seedId, Color: $seedColor');
         } else {
           seedId = properties?['seed_id'] as String? ?? 'unknown_seed';
           debugPrint('[SimpleEnhancedFarmGame] 🌱 Regular seed ID: $seedId');
         }
-        debugPrint('[SimpleEnhancedFarmGame] 🌱 Restoring ${plantType} at ($x, $y) - Stage: $growthStage');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] 🌱 Restoring ${plantType} at ($x, $y) - Stage: $growthStage');
         await addPlantedSeed(x, y, seedId, growthStage, seedColor: seedColor);
-        debugPrint('[SimpleEnhancedFarmGame] ✅ Added visual component for seed at ($x, $y)');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] ✅ Added visual component for seed at ($x, $y)');
       }
-      debugPrint('[SimpleEnhancedFarmGame] ✅ Restored ${plantedSeeds.length} planted seeds from backend');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] ✅ Restored ${plantedSeeds.length} planted seeds from backend');
     } catch (e) {
-      debugPrint('[SimpleEnhancedFarmGame] ❌ Error loading planted seeds from backend: $e');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] ❌ Error loading planted seeds from backend: $e');
     }
   }
 
-  Future<void> addPlantedSeed(int gridX, int gridY, String seedId, String growthStage, {Color? seedColor}) async {
+  Future<void> addPlantedSeed(
+      int gridX, int gridY, String seedId, String growthStage,
+      {Color? seedColor, bool skipBackend = false}) async {
     try {
-      debugPrint('[SimpleEnhancedFarmGame] 🌱 Adding planted seed at ($gridX, $gridY):');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] 🌱 Adding planted seed at ($gridX, $gridY):');
       debugPrint('[SimpleEnhancedFarmGame]   - Seed ID: $seedId');
       debugPrint('[SimpleEnhancedFarmGame]   - Growth stage: $growthStage');
       debugPrint('[SimpleEnhancedFarmGame]   - Seed color: $seedColor');
       if (!kDisablePlantedSeedSprite) {
         debugPrint('[SimpleEnhancedFarmGame] 🔍 Requesting plant sprite...');
-        final plantSprite = await _getPlantSprite(seedId, growthStage, seedColor);
+        final plantSprite =
+            await _getPlantSprite(seedId, growthStage, seedColor);
         debugPrint('[SimpleEnhancedFarmGame] ✅ Plant sprite acquired');
-        final position = Vector2(gridX * SimpleEnhancedFarmGame.tileSize, gridY * SimpleEnhancedFarmGame.tileSize);
+        final position = Vector2(gridX * SimpleEnhancedFarmGame.tileSize,
+            gridY * SimpleEnhancedFarmGame.tileSize);
         final plantedSeedComponent = PlantedSeedComponent(
           seedId: seedId,
           gridX: gridX,
@@ -69,7 +82,7 @@ extension SeedsExtension on SimpleEnhancedFarmGame {
         );
         world.add(plantedSeedComponent);
         // If this is a daily question seed and the CURRENT user still needs to answer, show indicator
-        if (seedId.startsWith('daily_question_seed_')) {
+        if (!skipBackend && seedId.startsWith('daily_question_seed_')) {
           // Check tile-specific answer state from farm_seed_answers using farm/tile
           () async {
             try {
@@ -80,7 +93,8 @@ extension SeedsExtension on SimpleEnhancedFarmGame {
                   .eq('x', gridX)
                   .eq('y', gridY);
               final me = SupabaseConfig.currentUserId;
-              final answeredUserIds = (res as List).map((r) => r['user_id'] as String).toSet();
+              final answeredUserIds =
+                  (res as List).map((r) => r['user_id'] as String).toSet();
               final bothAnswered = answeredUserIds.length >= 2; // both partners
               final hasMine = me != null && answeredUserIds.contains(me);
               if (!bothAnswered && !hasMine) {
@@ -95,14 +109,17 @@ extension SeedsExtension on SimpleEnhancedFarmGame {
           await plantedSeedComponent.checkAndLoadGeneratedSprite();
         }
       } else {
-        debugPrint('[SimpleEnhancedFarmGame] 🧪 DEBUG: Sprite loading disabled; using placeholder rect component');
-        final position = Vector2(gridX * SimpleEnhancedFarmGame.tileSize, gridY * SimpleEnhancedFarmGame.tileSize);
+        debugPrint(
+            '[SimpleEnhancedFarmGame] 🧪 DEBUG: Sprite loading disabled; using placeholder rect component');
+        final position = Vector2(gridX * SimpleEnhancedFarmGame.tileSize,
+            gridY * SimpleEnhancedFarmGame.tileSize);
         final plantedSeedComponent = PlantedSeedComponent(
           seedId: seedId,
           gridX: gridX,
           gridY: gridY,
           growthStage: growthStage,
-          sprite: Sprite(await images.load('items/seeds.png')), // not used when placeholder is on
+          sprite: Sprite(await images
+              .load('items/seeds.png')), // not used when placeholder is on
           position: position,
           seedColor: seedColor,
           farmId: farmId,
@@ -111,23 +128,36 @@ extension SeedsExtension on SimpleEnhancedFarmGame {
         world.add(plantedSeedComponent);
         _plantedSeeds['$gridX,$gridY'] = plantedSeedComponent;
       }
-      debugPrint('[SimpleEnhancedFarmGame] 🌱 Added planted seed at ($gridX, $gridY): $seedId');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] 🌱 Added planted seed at ($gridX, $gridY): $seedId');
     } catch (e) {
       debugPrint('[SimpleEnhancedFarmGame] ❌ Error adding planted seed: $e');
-      debugPrint('[SimpleEnhancedFarmGame] ⚠️ Context: seedId=$seedId stage=$growthStage at=($gridX,$gridY)');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] ⚠️ Context: seedId=$seedId stage=$growthStage at=($gridX,$gridY)');
     }
   }
 
-  Future<void> updatePlantGrowth(int gridX, int gridY, String newGrowthStage) async {
+  void removePlantedSeed(int gridX, int gridY) {
+    final key = '${gridX},${gridY}';
+    final existing = _plantedSeeds.remove(key);
+    if (existing != null) {
+      existing.removeFromParent();
+    }
+  }
+
+  Future<void> updatePlantGrowth(
+      int gridX, int gridY, String newGrowthStage) async {
     final key = '$gridX,$gridY';
     final existingPlant = _plantedSeeds[key];
     if (existingPlant != null) {
-      final newSprite = await _getPlantSprite(existingPlant.seedId, newGrowthStage, existingPlant.seedColor);
+      final newSprite = await _getPlantSprite(
+          existingPlant.seedId, newGrowthStage, existingPlant.seedColor);
       existingPlant.updateGrowth(newGrowthStage, newSprite);
       if (newGrowthStage == 'fully_grown') {
         await existingPlant.checkAndLoadGeneratedSprite();
       }
-      debugPrint('[SimpleEnhancedFarmGame] 🌱 Updated plant growth at ($gridX, $gridY): $newGrowthStage');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] 🌱 Updated plant growth at ($gridX, $gridY): $newGrowthStage');
     }
   }
 
@@ -136,11 +166,13 @@ extension SeedsExtension on SimpleEnhancedFarmGame {
     final existingPlant = _plantedSeeds[key];
     if (existingPlant != null) {
       await updatePlantGrowth(gridX, gridY, 'growing');
-      debugPrint('[SimpleEnhancedFarmGame] 💧 Watered plant at ($gridX, $gridY)');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] 💧 Watered plant at ($gridX, $gridY)');
     }
   }
 
-  Future<Sprite> _getPlantSprite(String seedId, String growthStage, Color? seedColor) async {
+  Future<Sprite> _getPlantSprite(
+      String seedId, String growthStage, Color? seedColor) async {
     return _seedSprites.getPlantSprite(images, seedId, growthStage, seedColor);
   }
 
@@ -172,34 +204,41 @@ extension SeedsExtension on SimpleEnhancedFarmGame {
         final gridY = component.gridY;
         if (gridX == tileX && gridY == tileY) {
           final seedId = component.seedId;
-          debugPrint('[SimpleEnhancedFarmGame] 💧 Watering planted seed at ($gridX, $gridY): $seedId');
+          debugPrint(
+              '[SimpleEnhancedFarmGame] 💧 Watering planted seed at ($gridX, $gridY): $seedId');
           if (seedId.startsWith('daily_question_seed')) {
-            final success = await DailyQuestionSeedService.waterDailyQuestionSeed(
+            final success =
+                await DailyQuestionSeedService.waterDailyQuestionSeed(
               plotX: gridX,
               plotY: gridY,
               farmId: farmId,
             );
             if (success) {
-              debugPrint('[SimpleEnhancedFarmGame] ✅ Daily question seed watered successfully');
+              debugPrint(
+                  '[SimpleEnhancedFarmGame] ✅ Daily question seed watered successfully');
               if (component.sprite != null) {
                 component.updateGrowth('watered', component.sprite!);
               }
               return true;
             } else {
-              debugPrint('[SimpleEnhancedFarmGame] ❌ Failed to water daily question seed');
+              debugPrint(
+                  '[SimpleEnhancedFarmGame] ❌ Failed to water daily question seed');
               return false;
             }
           } else {
             final farmTileService = FarmTileService();
             await farmTileService.waterSeed(farmId, gridX, gridY);
-            debugPrint('[SimpleEnhancedFarmGame] ✅ Regular seed watered successfully');
+            debugPrint(
+                '[SimpleEnhancedFarmGame] ✅ Regular seed watered successfully');
             final seedData = await farmTileService.loadPlantedSeeds(farmId);
             final currentSeed = seedData.firstWhere(
               (seed) => seed['x'] == gridX && seed['y'] == gridY,
               orElse: () => <String, dynamic>{},
             );
-            if (currentSeed.isNotEmpty && currentSeed['growth_stage'] == 'fully_grown') {
-              debugPrint('[SimpleEnhancedFarmGame] 🌸 Seed is now fully grown - sprite generation triggered');
+            if (currentSeed.isNotEmpty &&
+                currentSeed['growth_stage'] == 'fully_grown') {
+              debugPrint(
+                  '[SimpleEnhancedFarmGame] 🌸 Seed is now fully grown - sprite generation triggered');
             }
             if (component.sprite != null) {
               component.updateGrowth('watered', component.sprite!);
@@ -208,7 +247,8 @@ extension SeedsExtension on SimpleEnhancedFarmGame {
           }
         }
       }
-      debugPrint('[SimpleEnhancedFarmGame] ⚠️ No planted seed found at ($tileX, $tileY)');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] ⚠️ No planted seed found at ($tileX, $tileY)');
       return false;
     } catch (e) {
       debugPrint('[SimpleEnhancedFarmGame] ❌ Error watering planted seed: $e');
@@ -218,9 +258,11 @@ extension SeedsExtension on SimpleEnhancedFarmGame {
 
   Future<void> forceRefreshPlantedSeeds() async {
     try {
-      debugPrint('[SimpleEnhancedFarmGame] 🔄 Force refreshing all planted seed components...');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] 🔄 Force refreshing all planted seed components...');
       for (final component in world.children.query<PlantedSeedComponent>()) {
-        debugPrint('[SimpleEnhancedFarmGame] 🔄 Checking component at (${component.gridX}, ${component.gridY})');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] 🔄 Checking component at (${component.gridX}, ${component.gridY})');
         await component.checkAndLoadGeneratedSprite();
       }
       debugPrint('[SimpleEnhancedFarmGame] ✅ Force refresh completed');
@@ -231,7 +273,8 @@ extension SeedsExtension on SimpleEnhancedFarmGame {
 
   Future<void> _checkAndRevertOldWateredTiles() async {
     try {
-      debugPrint('[SimpleEnhancedFarmGame] 🔄 Checking for old watered tiles that need reverting...');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] 🔄 Checking for old watered tiles that need reverting...');
       final farmTileService = FarmTileService();
       final plantedSeeds = await farmTileService.loadPlantedSeeds(farmId);
       bool hasChanges = false;
@@ -244,24 +287,26 @@ extension SeedsExtension on SimpleEnhancedFarmGame {
           final now = DateTime.now();
           final hoursSinceLastWater = now.difference(lastWatered).inHours;
           if (hoursSinceLastWater >= 24) {
-            debugPrint('[SimpleEnhancedFarmGame] ⏰ Tile at ($x, $y) was watered $hoursSinceLastWater hours ago - reverting to dirt');
+            debugPrint(
+                '[SimpleEnhancedFarmGame] ⏰ Tile at ($x, $y) was watered $hoursSinceLastWater hours ago - reverting to dirt');
             _writeTileVertices(x, y, _dirtTerrainId);
             hasChanges = true;
           }
         }
       }
       if (hasChanges) {
-        debugPrint('[SimpleEnhancedFarmGame] 🔄 Reverting old watered tiles to dirt...');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] 🔄 Reverting old watered tiles to dirt...');
         await _persistVertexGridState();
         _updateEntireMapVisual();
-        debugPrint('[SimpleEnhancedFarmGame] ✅ Old watered tiles reverted to dirt');
+        debugPrint(
+            '[SimpleEnhancedFarmGame] ✅ Old watered tiles reverted to dirt');
       } else {
         debugPrint('[SimpleEnhancedFarmGame] ℹ️ No old watered tiles found');
       }
     } catch (e) {
-      debugPrint('[SimpleEnhancedFarmGame] ❌ Error checking for old watered tiles: $e');
+      debugPrint(
+          '[SimpleEnhancedFarmGame] ❌ Error checking for old watered tiles: $e');
     }
   }
 }
-
-
