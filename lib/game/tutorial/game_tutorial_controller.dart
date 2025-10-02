@@ -1,9 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flame/components.dart';
 import 'package:lovenest_valley/game/simple_enhanced_farm_game.dart';
 import 'package:lovenest_valley/models/inventory.dart';
 import 'package:lovenest_valley/models/memory_garden/question.dart';
+import 'package:lovenest_valley/components/tutorial_click_animation.dart';
+import 'package:lovenest_valley/components/world/hoe_animation.dart';
 
 typedef TutorialCaptionCallback = void Function(String? caption);
 
@@ -42,6 +46,11 @@ class GameTutorialController {
 
     final originalSlots = List<InventoryItem?>.from(inventoryManager.slots);
     final originalSelection = inventoryManager.selectedSlotIndex;
+    
+    // Store original tile state for cleanup
+    int originalTileGid = 0;
+    final plantingX = 32;
+    final plantingY = 8;
 
     final question = Question(
       id: 'tutorial-daily-question',
@@ -56,11 +65,24 @@ class GameTutorialController {
         const Duration(seconds: 3),
       );
 
-      await game.movePlayerToGrid(21, 14);
+      // Debug: Log current player position and target
+      debugPrint('[Tutorial] 🎯 Attempting to move player to owl area (39, 7)');
+      debugPrint('[Tutorial] 📍 Current player position: ${game.player.position}');
+      
+      await game.movePlayerToGrid(39, 7);
+      
+      // Debug: Check if pathfinding worked
+      debugPrint('[Tutorial] 📍 Player position after move attempt: ${game.player.position}');
+      debugPrint('[Tutorial] 🛤️ Player current path: ${game.player.currentPath}');
+      debugPrint('[Tutorial] 🎯 Player path index: ${game.player.currentPathIndex}');
+      
       await _narrate(
         "Meet the Owl! Each day it shares a prompt to spark conversation.",
         const Duration(seconds: 3),
       );
+
+      // Show click animation on the owl
+      await _showClickAnimationOnOwl();
 
       await _narrate(
         'Today\'s question: "${question.text}"',
@@ -75,16 +97,66 @@ class GameTutorialController {
         itemColor: Colors.pinkAccent.shade200,
       );
       _injectSeed(tutorialSeed);
-      await game.movePlayerToGrid(22, 14);
+      
+      // Debug: Try moving to a different nearby position
+      debugPrint('[Tutorial] 🎯 Attempting to move player to owl area (39, 7)');
+      debugPrint('[Tutorial] 📍 Current player position: ${game.player.position}');
+      
+      await game.movePlayerToGrid(39, 7);
+      
+      // Debug: Check if pathfinding worked
+      debugPrint('[Tutorial] 📍 Player position after move attempt: ${game.player.position}');
+      debugPrint('[Tutorial] 🛤️ Player current path: ${game.player.currentPath}');
+      debugPrint('[Tutorial] 🎯 Player path index: ${game.player.currentPathIndex}');
+      
       await _narrate(
         "The Owl hands you a memory seed ready to plant together.",
         const Duration(seconds: 3),
       );
 
-      await game.movePlayerToGrid(18, 9);
+      // Move to a good planting area (grass tiles around spawn area)
+      await game.movePlayerToGrid(plantingX, plantingY);
+      
+      // Store the original tile state before any modifications
+      originalTileGid = game.getGidAt(plantingX, plantingY);
+      debugPrint('[Tutorial] 📝 Stored original tile GID: $originalTileGid at ($plantingX, $plantingY)');
+      
       await _narrate(
         "Stand beside a cozy patch so we can plant your answer together.",
         const Duration(seconds: 3),
+      );
+
+      // First, give the player a hoe to prepare the ground
+      await _narrate(
+        "Let's get a hoe to prepare the ground for planting.",
+        const Duration(seconds: 2),
+      );
+
+      // Give player a hoe temporarily
+      final hoe = InventoryItem(
+        id: 'hoe',
+        name: 'Hoe',
+        iconPath: 'assets/images/items/hoe.png',
+        quantity: 1,
+        itemColor: Colors.brown,
+      );
+      _injectSeed(hoe);
+
+      await _narrate(
+        "Now let's hoe the ground to prepare it for planting.",
+        const Duration(seconds: 2),
+      );
+
+      // Create and show a simple hoe animation
+      debugPrint('[Tutorial] 🚜 Creating hoe animation at (32, 8)');
+      await _showHoeAnimation(32, 8);
+      
+      // Wait for the hoe animation to complete
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      await _narrate(
+        "Perfect! Now the ground is ready for planting.",
+        const Duration(seconds: 2),
       );
 
       await _showAutoAnswerSheet(question.text, answer);
@@ -93,8 +165,8 @@ class GameTutorialController {
       }
 
       await game.addPlantedSeed(
-        18,
-        8,
+        plantingX,
+        plantingY,
         tutorialSeed.id,
         'planted',
         seedColor: tutorialSeed.itemColor,
@@ -113,7 +185,21 @@ class GameTutorialController {
         const Duration(seconds: 3),
       );
 
-      await game.movePlayerToGrid(27, 18);
+      // Move to first beach location
+      debugPrint('[Tutorial] 🏖️ Moving player to first beach location (34, 17)');
+      await game.movePlayerToGrid(34, 17);
+      debugPrint('[Tutorial] 🏖️ Player moved to first beach location, current position: ${game.player.position}');
+
+      // Move to second beach location
+      debugPrint('[Tutorial] 🏖️ Moving player to second beach location (34, 21)');
+      await game.movePlayerToGrid(34, 21);
+      debugPrint('[Tutorial] 🏖️ Player moved to second beach location, current position: ${game.player.position}');
+      
+      await _narrate(
+        "Here's a perfect spot on the beach for your seashell.",
+        const Duration(seconds: 2),
+      );
+      
       await _showSeashellDemo();
       if (!isMounted()) {
         return;
@@ -129,7 +215,8 @@ class GameTutorialController {
         const Duration(seconds: 3),
       );
 
-      await game.movePlayerToGrid(20, 12);
+      // Move to shop area (near bonfire spawn)
+      await game.movePlayerToGrid(34, 12);
       await _showShopPreview();
       if (!isMounted()) {
         return;
@@ -145,7 +232,20 @@ class GameTutorialController {
         const Duration(seconds: 3),
       );
 
-      game.removePlantedSeed(18, 8);
+      game.removePlantedSeed(plantingX, plantingY);
+      
+      // Clear any tile overrides from the tutorial tilling
+      debugPrint('[Tutorial] 🧹 Clearing tile overrides from tutorial tilling');
+      game.clearTileOverrides();
+      
+      // Restore the original tile state
+      if (originalTileGid > 0) {
+        debugPrint('[Tutorial] 🔄 Restoring original tile GID: $originalTileGid at ($plantingX, $plantingY)');
+        await game.updateTileWithAutoTiling(plantingX, plantingY, originalTileGid);
+        debugPrint('[Tutorial] ✅ Original tile state restored');
+      } else {
+        debugPrint('[Tutorial] ⚠️ No original tile state to restore');
+      }
     } finally {
       for (var i = 0; i < InventoryManager.maxSlots; i++) {
         inventoryManager.setItem(i, originalSlots[i]);
@@ -234,6 +334,105 @@ class GameTutorialController {
         return const _TutorialShopSheet();
       },
     );
+  }
+
+  Future<void> _showClickAnimationOnOwl() async {
+    if (!isMounted()) {
+      return;
+    }
+
+    try {
+      // Get the owl's position from the game
+      // The owl is typically at grid position (39, 7) or similar
+      // We need to convert this to world coordinates
+      final owlGridX = 39;
+      final owlGridY = 7;
+      final tileSize = 16.0; // Standard tile size
+      
+      // Calculate owl's world position (center of the tile)
+      final owlWorldX = owlGridX * tileSize + tileSize / 2;
+      final owlWorldY = owlGridY * tileSize + tileSize / 2;
+      
+      // Offset the animation upward to be visible above the owl
+      final animationOffsetY = -60.0; // Move up by 60 pixels (increased for better visibility)
+      final animationX = owlWorldX;
+      final animationY = owlWorldY + animationOffsetY;
+      
+      debugPrint('[Tutorial] 🎯 Showing click animation at owl position ($owlWorldX, $owlWorldY)');
+      debugPrint('[Tutorial] 🎯 Animation positioned at ($animationX, $animationY)');
+      
+      // Create and add the click animation
+      final clickAnimation = TutorialClickAnimation(
+        targetPosition: Vector2(animationX, animationY),
+        targetSize: Vector2(80, 80), // Larger animation size for better visibility
+        duration: const Duration(seconds: 4), // Show for 4 seconds
+        onAnimationComplete: () {
+          debugPrint('[Tutorial] ✅ Click animation completed');
+        },
+      );
+      
+      // Add the animation to the game world
+      game.world.add(clickAnimation);
+      
+      // Wait for the animation to complete
+      await Future.delayed(const Duration(seconds: 4));
+      
+      debugPrint('[Tutorial] 🎯 Click animation finished');
+      
+    } catch (e) {
+      debugPrint('[Tutorial] ❌ Failed to show click animation: $e');
+      // Continue with tutorial even if animation fails
+    }
+  }
+
+  Future<void> _showHoeAnimation(int gridX, int gridY) async {
+    if (!isMounted()) {
+      return;
+    }
+
+    try {
+      final tileSize = 16.0; // Standard tile size
+      
+      // Calculate world position for the hoe animation
+      final worldX = gridX * tileSize;
+      final worldY = gridY * tileSize;
+      
+      debugPrint('[Tutorial] 🚜 Showing hoe animation at grid ($gridX, $gridY) -> world ($worldX, $worldY)');
+      
+      // Create a simple hoe animation component
+      final hoeAnimation = HoeAnimation(
+        position: Vector2(worldX, worldY),
+        size: Vector2(tileSize, tileSize),
+        swingDirection: 1, // Front swing
+        shouldFlip: false,
+        onAnimationComplete: () async {
+          debugPrint('[Tutorial] ✅ Hoe animation completed');
+          // After animation, till the tile
+          await _tillTileAt(gridX, gridY);
+        },
+      );
+      
+      // Add the animation to the game world
+      game.world.add(hoeAnimation);
+      
+      debugPrint('[Tutorial] 🚜 Hoe animation started');
+      
+    } catch (e) {
+      debugPrint('[Tutorial] ❌ Failed to show hoe animation: $e');
+      // Continue with tutorial even if animation fails
+    }
+  }
+
+  Future<void> _tillTileAt(int gridX, int gridY) async {
+    try {
+      debugPrint('[Tutorial] 🚜 Tilling tile at ($gridX, $gridY) using terrain system (tutorial mode)');
+      // Use the game's public method to till the tile using the proper terrain system
+      // skipBackend: true ensures this is only a visual change and won't persist
+      await game.tillTile(gridX, gridY, skipBackend: true);
+      debugPrint('[Tutorial] ✅ Tile tilled successfully with proper terrain system (no backend save)');
+    } catch (e) {
+      debugPrint('[Tutorial] ❌ Failed to till tile: $e');
+    }
   }
 }
 

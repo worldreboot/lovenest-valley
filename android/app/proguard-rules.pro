@@ -28,9 +28,9 @@
 -keep class io.flutter.**  { *; }
 -keep class io.flutter.plugins.**  { *; }
 
-# RevenueCat specific rules
--keep class com.revenuecat.purchases.** { *; }
--keep class com.revenuecat.purchases.models.** { *; }
+# Superwall specific rules
+-keep class com.superwall.** { *; }
+-keep class com.superwall.sdk.** { *; }
 
 # Firebase specific rules
 -keep class com.google.firebase.** { *; }

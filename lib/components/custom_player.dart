@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lovenest_valley/components/world/building.dart';
@@ -403,8 +404,19 @@ class CustomPlayer extends SpriteAnimationComponent with HasGameRef<GameWithGrid
     manualTarget = null;
     velocity = Vector2.zero();
     
+    // Debug: Log pathfinding attempt
+    debugPrint('[CustomPlayer] 🛤️ Pathfinding from ${position} to grid ($gridX, $gridY)');
+    
     // Calculate path using A* pathfinding
     final path = game.pathfindingGrid.findPath(position, Vector2(gridX.toDouble(), gridY.toDouble()));
+    
+    debugPrint('[CustomPlayer] 🛤️ Pathfinding result: ${path.length} waypoints');
+    if (path.isNotEmpty) {
+      debugPrint('[CustomPlayer] 🛤️ First waypoint: ${path.first}');
+      debugPrint('[CustomPlayer] 🛤️ Last waypoint: ${path.last}');
+    } else {
+      debugPrint('[CustomPlayer] ❌ No path found! Target may be blocked or unreachable');
+    }
     
     if (path.isNotEmpty) {
       currentPath = path;

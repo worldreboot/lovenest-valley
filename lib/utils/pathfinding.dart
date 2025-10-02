@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:collection/collection.dart';
 import 'package:flame/components.dart';
+import 'package:flutter/foundation.dart';
 
 class PathfindingGrid {
   final int width;
@@ -27,7 +28,19 @@ class PathfindingGrid {
     final startGrid = Vector2((start.x / tileSize).floor().toDouble(), (start.y / tileSize).floor().toDouble());
     final endGrid = Vector2(end.x.toDouble(), end.y.toDouble());
     
-    return _aStar(startGrid, endGrid);
+    // Debug: Log pathfinding attempt
+    debugPrint('[Pathfinding] 🛤️ Finding path from grid (${startGrid.x.toInt()}, ${startGrid.y.toInt()}) to (${endGrid.x.toInt()}, ${endGrid.y.toInt()})');
+    debugPrint('[Pathfinding] 🎯 Start world position: $start, End grid: $endGrid');
+    
+    final path = _aStar(startGrid, endGrid);
+    
+    debugPrint('[Pathfinding] 🛤️ Path result: ${path.length} waypoints');
+    if (path.isEmpty) {
+      debugPrint('[Pathfinding] ❌ No path found! Checking if target is obstacle...');
+      debugPrint('[Pathfinding] 🚧 Target (${endGrid.x.toInt()}, ${endGrid.y.toInt()}) is obstacle: ${isObstacle(endGrid.x.toInt(), endGrid.y.toInt())}');
+    }
+    
+    return path;
   }
   
   List<Vector2> _aStar(Vector2 start, Vector2 end) {

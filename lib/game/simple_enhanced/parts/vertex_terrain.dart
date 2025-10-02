@@ -589,7 +589,7 @@ extension VertexTerrainExtension on SimpleEnhancedFarmGame {
         : -1;
   }
 
-  void tillTileAtVertex(int tileX, int tileY) {
+  void tillTileAtVertex(int tileX, int tileY, {bool persist = true}) {
     debugPrint('[SimpleEnhancedFarmGame] 🚜 Attempting to till tile at ($tileX, $tileY) using vertex system');
     final int grassId = _grassTerrainId;
     final bool isGrass =
@@ -605,8 +605,19 @@ extension VertexTerrainExtension on SimpleEnhancedFarmGame {
     // Remove any decorations on this tile before tilling
     _removeDecorationsAtGridPosition(tileX, tileY);
     
-    debugPrint('[SimpleEnhancedFarmGame] ✅ Tile is grass. Converting to dirt.');
-    _setTileTerrainAndPersist(tileX, tileY, _dirtTerrainId);
+    debugPrint('[SimpleEnhancedFarmGame] ✅ Tile is grass. Converting to dirt. (persist: $persist)');
+    // Update vertex grid to dirt
+    _writeTileVertices(tileX, tileY, _dirtTerrainId);
+
+    if (persist) {
+      _schedulePersistVertexGridState();
+    }
+
+    _updateSurroundingTilesVertex(tileX, tileY);
+
+    if (!persist) {
+      debugPrint('[SimpleEnhancedFarmGame] 🧪 Tutorial till (vertex) at ($tileX, $tileY) - no persistence');
+    }
   }
 
   Future<void> waterTileAtVertex(int tileX, int tileY) async {

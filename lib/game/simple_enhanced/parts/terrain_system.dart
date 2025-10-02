@@ -1,7 +1,7 @@
 part of '../../simple_enhanced_farm_game.dart';
 
 abstract class TerrainSystem {
-  Future<void> till(int x, int y);
+  Future<void> till(int x, int y, {bool persist = true});
   Future<void> water(int x, int y);
   bool isTillable(int x, int y);
   bool isWaterable(int x, int y);
@@ -14,8 +14,11 @@ class VertexTerrainSystem implements TerrainSystem {
   VertexTerrainSystem(this.game);
 
   @override
-  Future<void> till(int x, int y) async {
-    game.tillTileAtVertex(x, y);
+  Future<void> till(int x, int y, {bool persist = true}) async {
+    game.tillTileAtVertex(x, y, persist: persist);
+    if (!persist) {
+      debugPrint('[VertexTerrainSystem] 🧪 Tutorial till at ($x, $y) - no persistence');
+    }
   }
 
   @override
@@ -78,14 +81,18 @@ class AutoTilingTerrainSystem implements TerrainSystem {
   AutoTilingTerrainSystem(this.game);
 
   @override
-  Future<void> till(int x, int y) async {
+  Future<void> till(int x, int y, {bool persist = true}) async {
     const tilledTileGid = 28;
     final tileData = game._groundTileData;
     if (tileData != null && x >= 0 && x < tileData[0].length && y >= 0 && y < tileData.length) {
       tileData[y][x] = tilledTileGid;
       await game._updateTileVisual(tileData, x, y, tilledTileGid);
       await game._applyAutoTilingToSurroundings(x, y);
-      debugPrint('[SimpleEnhancedFarmGame] ✅ Tile tilled (auto-tiling) at ($x, $y)');
+      if (persist) {
+        debugPrint('[SimpleEnhancedFarmGame] ✅ Tile tilled (auto-tiling) at ($x, $y)');
+      } else {
+        debugPrint('[SimpleEnhancedFarmGame] 🧪 Tutorial till (auto-tiling) at ($x, $y) - no persistence');
+      }
     } else {
       debugPrint('[SimpleEnhancedFarmGame] ❌ Failed to till tile (auto-tiling) - out of bounds');
     }

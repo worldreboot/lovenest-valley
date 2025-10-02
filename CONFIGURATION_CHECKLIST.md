@@ -27,11 +27,12 @@ SHA1: F4:B3:D5:E0:A4:B3:E4:0C:05:7B:CF:A5:46:B7:D2:8E:BE:16:64:D3
 - [ ] Configure subscription products
 - [ ] Add test accounts for purchase testing
 
-### 4. **RevenueCat Configuration** ⚠️ **REQUIRED**
-- [ ] Create account at [RevenueCat](https://app.revenuecat.com/)
+### 4. **Superwall Configuration** ⚠️ **REQUIRED**
+- [x] Create account at [Superwall Dashboard](https://superwall.com/dashboard)
 - [ ] Add Android app with package name: `com.liglus.lovenest`
 - [ ] Configure products: `premium_monthly`, `premium_yearly`, `premium_lifetime`
-- [ ] Get API key and update `lib/services/revenuecat_service.dart`
+- [ ] Design paywall in Superwall dashboard with placement: `premium`
+- [x] Get API key and update `lib/services/superwall_service.dart`
 
 ## 🚀 **After Updates - Build and Test**
 
@@ -61,7 +62,7 @@ flutter pub get
 - [Firebase Console](https://console.firebase.google.com/)
 - [Google Cloud Console](https://console.cloud.google.com/)
 - [Google Play Console](https://play.google.com/console)
-- [RevenueCat Dashboard](https://app.revenuecat.com/)
+- [Superwall Dashboard](https://superwall.com/dashboard)
 
 ## ⚠️ **Important Notes**
 
@@ -75,6 +76,6 @@ flutter pub get
 1. **Firebase** (required for app to work)
 2. **Google Sign-In** (required for authentication)
 3. **Play Console** (required for testing)
-4. **RevenueCat** (required for subscriptions)
+4. **Superwall** (required for subscriptions)
 
 Complete these in order and your app will be ready for closed testing! 🚀

@@ -16,7 +16,6 @@ dependencies:
   supabase_flutter: ^2.8.2
   firebase_core: ^3.15.0
   firebase_messaging: ^15.0.1
-  purchases_flutter: ^9.2.0
   uuid: ^4.5.1
   path: ^1.9.1
   crypto: ^3.0.6
@@ -29,11 +28,15 @@ dependencies:
   record: ^6.0.0
   audioplayers: ^5.2.1
   cupertino_icons: ^1.0.8
+  flame_lottie: ^0.4.2+16
   google_sign_in: ^6.2.1
+  lottie: ^3.1.2
   sign_in_with_apple: ^6.1.0
   permission_handler: ^11.3.0
   flutter_launcher_icons: ^0.14.4
   share_plus: ^7.2.1
+  superwallkit_flutter: ^2.0.8
+  app_links: ^6.4.1
 
 dev_dependencies:
   flutter_test:
@@ -48,6 +51,9 @@ flutter:
   assets:
     # Main assets directory (includes all subdirectories)
     - assets/
+    
+    # Lottie animations directory
+    - assets/lottie/tutorial/click.json
     
     # Tiles directory (for .tmx files)
     - assets/tiles/

@@ -4,8 +4,8 @@ import 'package:lovenest_valley/screens/onboarding_screen.dart';
 import 'package:lovenest_valley/screens/menu_screen.dart';
 import 'package:lovenest_valley/main.dart' show FarmLoader; // Use FarmLoader to resolve shared farm and route to game
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:lovenest_valley/services/revenuecat_service.dart';
-import 'package:lovenest_valley/screens/paywall_screen.dart';
+import 'package:lovenest_valley/services/superwall_service.dart';
+import 'package:lovenest_valley/screens/superwall_paywall_screen.dart';
 import 'package:lovenest_valley/config/feature_flags.dart';
 // LinkPartnerScreen is pushed from FarmLoader; no direct import needed here
 
@@ -107,7 +107,7 @@ class _AuthFlowScreenState extends State<AuthFlowScreen> {
           if (mounted) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
-                builder: (context) => PaywallScreen(
+                builder: (context) => SuperwallPaywallScreen(
                   onEntitled: () {
                     if (mounted) {
                       setState(() {});
@@ -192,7 +192,7 @@ class _AuthFlowScreenState extends State<AuthFlowScreen> {
   }
 
   Future<bool> _checkEntitlement(String? appUserId) async {
-    await RevenueCatService.initialize(appUserId: appUserId);
-    return RevenueCatService.isEntitled();
+    await SuperwallService.initialize(appUserId: appUserId);
+    return SuperwallService.isEntitled();
   }
 } 

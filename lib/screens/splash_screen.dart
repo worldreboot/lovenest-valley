@@ -3,8 +3,8 @@ import 'package:lovenest_valley/config/supabase_config.dart';
 import 'package:lovenest_valley/screens/avatar_creation_screen.dart';
 import 'package:lovenest_valley/screens/game_screen.dart';
 import 'package:lovenest_valley/screens/menu_screen.dart';
-import 'package:lovenest_valley/screens/paywall_screen.dart';
-import 'package:lovenest_valley/services/revenuecat_service.dart';
+import 'package:lovenest_valley/screens/superwall_paywall_screen.dart';
+import 'package:lovenest_valley/services/superwall_service.dart';
 import 'package:lovenest_valley/config/feature_flags.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -78,8 +78,8 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<bool> _checkEntitlement(String appUserId) async {
-    await RevenueCatService.initialize(appUserId: appUserId);
-    return RevenueCatService.isEntitled();
+    await SuperwallService.initialize(appUserId: appUserId);
+    return SuperwallService.isEntitled();
   }
 
   Future<bool> _userHasCustomSpritesheet(String userId) async {
@@ -128,7 +128,7 @@ class _SplashScreenState extends State<SplashScreen> {
   void _showPaywall() {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => PaywallScreen(
+        builder: (_) => SuperwallPaywallScreen(
           onEntitled: _checkAvatarStatus,
           onClose: _navigateToMenu,
         ),

@@ -15,6 +15,9 @@ import 'package:lovenest_valley/config/supabase_config.dart';
 import 'package:lovenest_valley/services/mood_weather_service.dart';
 import 'package:lovenest_valley/models/mood_weather_model.dart';
 import 'package:lovenest_valley/services/auth_service.dart';
+import 'package:lovenest_valley/services/superwall_service.dart';
+import 'package:lovenest_valley/services/deep_link_service.dart';
+import 'package:lovenest_valley/config/feature_flags.dart';
 
 import 'package:lovenest_valley/screens/daily_mood_prompt_screen.dart';
 import 'package:lovenest_valley/screens/shop_screen.dart';
@@ -22,6 +25,7 @@ import 'package:lovenest_valley/screens/stardew_dialogue_box.dart';
 import 'package:lovenest_valley/screens/link_partner_screen.dart';
 import 'package:lovenest_valley/screens/audio_record_dialog.dart';
 import 'package:lovenest_valley/screens/onboarding_screen.dart';
+import 'package:lovenest_valley/screens/superwall_paywall_screen.dart';
 import 'package:lovenest_valley/components/ui/chest_storage_ui.dart';
 import 'package:lovenest_valley/services/pending_gift_service.dart';
 import 'package:lovenest_valley/screens/widgets/gifts_inbox_dialog.dart';
@@ -172,6 +176,8 @@ class _GameScreenState extends State<GameScreen> {
             _tutorialRunning = false;
             _tutorialCaption = null;
           });
+          // Check subscription status after tutorial completion
+          _checkSubscriptionAfterTutorial();
         },
       );
 
@@ -187,6 +193,87 @@ class _GameScreenState extends State<GameScreen> {
         });
       }
     }
+  }
+
+  /// Check subscription status after tutorial completion and show paywall if needed
+  /// 
+  /// This method is called automatically when the interactive tutorial finishes.
+  /// If the user is not subscribed (kPaywallEnabled = true), it will show the
+  /// RevenueCat paywall screen to encourage subscription.
+  Future<void> _checkSubscriptionAfterTutorial() async {
+    // Only check if paywall is enabled
+    if (!kPaywallEnabled) {
+      debugPrint('[GameScreen] Paywall disabled, skipping subscription check');
+      return;
+    }
+
+    try {
+      debugPrint('[GameScreen] Checking subscription status after tutorial completion');
+      
+      final userId = SupabaseConfig.currentUserId;
+      if (userId == null) {
+        debugPrint('[GameScreen] No user ID available, skipping paywall check');
+        return;
+      }
+
+      // Initialize Superwall with user ID
+      await SuperwallService.initialize(appUserId: userId);
+      
+      // Check if user is entitled
+      final isEntitled = await SuperwallService.isEntitled();
+      
+      if (!isEntitled) {
+        debugPrint('[GameScreen] User not entitled, will show paywall after game loads');
+        
+        // Wait for the game to be fully loaded and rendered first
+        // This ensures the game is visible before showing the paywall overlay
+        _waitForGameToLoadThenShowPaywall();
+      } else {
+        debugPrint('[GameScreen] User is entitled, no paywall needed');
+      }
+    } catch (e) {
+      debugPrint('[GameScreen] Error checking subscription after tutorial: $e');
+    }
+  }
+
+  /// Wait for game to load completely, then show paywall overlay
+  void _waitForGameToLoadThenShowPaywall() {
+    // Wait for the next frame to ensure the game is rendered
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Add a small delay to ensure the game is fully visible
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          debugPrint('[GameScreen] Game should be loaded, showing paywall overlay');
+          _showPaywallAfterTutorial();
+        }
+      });
+    });
+  }
+
+  /// Show paywall screen after tutorial completion
+  void _showPaywallAfterTutorial() {
+    if (!mounted) return;
+    
+    debugPrint('[GameScreen] Showing paywall overlay on top of loaded game');
+    
+    showDialog(
+      context: context,
+      barrierDismissible: true, // Allow dismissing the paywall
+      builder: (context) => SuperwallPaywallScreen(
+        onEntitled: () {
+          debugPrint('[GameScreen] User became entitled after tutorial paywall');
+          // User purchased subscription, continue with game
+        },
+        onClose: () {
+          debugPrint('[GameScreen] User closed tutorial paywall - game should remain visible');
+          // User dismissed paywall, they can continue playing but with limitations
+          // Since game loaded first, it should remain visible after paywall dismissal
+        },
+      ),
+    ).then((_) {
+      // This runs when the dialog is closed (either by dismiss or by purchasing)
+      debugPrint('[GameScreen] Paywall dialog closed - game should be visible underneath');
+    });
   }
 
   // Starter items are now handled by the game's _ensureStarterChest() method
@@ -631,6 +718,29 @@ class _GameScreenState extends State<GameScreen> {
                 }
               },
             ),
+
+            // Superwall Test Button
+            ListTile(
+              leading: const Icon(Icons.science, color: Colors.orange),
+              title: const Text('Test Superwall'),
+              subtitle: const Text('Trigger campaign_trigger placement'),
+              onTap: () {
+                Navigator.of(context).pop();
+                SuperwallService.testPlacement('campaign_trigger');
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('🧪 Triggered campaign_trigger placement! Check console logs.'),
+                      backgroundColor: Colors.orange,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                }
+              },
+            ),
+
+
+
             // Partner information section
             if (_hasCouple) ...[
               FutureBuilder<Map<String, dynamic>?>(
@@ -980,6 +1090,11 @@ class _GameScreenState extends State<GameScreen> {
     final selectedItem = inventoryManager.selectedItem;
     if (selectedItem != null &&
         selectedItem.id.startsWith('daily_question_seed')) {
+      
+      // Use Superwall feature gating for planting daily question seeds
+      SuperwallService.registerPlacement(
+        'plant_daily_question_seed',
+        feature: () async {
       // If we already have an unplanted answer stored, plant it directly
       if (_pendingDailyQuestionAnswer != null) {
         final plotPosition = PlotPosition(gridX.toDouble(), gridY.toDouble());
@@ -1165,6 +1280,8 @@ class _GameScreenState extends State<GameScreen> {
         );
       }
       return;
+        },
+      );
     }
     try {
       // Persist seed to backend using farm_seeds system
@@ -1194,17 +1311,21 @@ class _GameScreenState extends State<GameScreen> {
   void _handleOwlTap(Question question) async {
     debugPrint('[GameScreen] 🦉 Owl tapped for question: ${question.id}');
 
-    // Check if user has already collected this seed
-    final hasCollected =
-        await DailyQuestionSeedCollectionService.hasUserCollectedSeed(
-            question.id);
-    debugPrint('[GameScreen] 📊 Collection check result: $hasCollected');
+    // Use Superwall feature gating for daily questions access
+    SuperwallService.registerPlacement(
+      'daily_questions_access',
+      feature: () async {
+        // Check if user has already collected this seed
+        final hasCollected =
+            await DailyQuestionSeedCollectionService.hasUserCollectedSeed(
+                question.id);
+        debugPrint('[GameScreen] 📊 Collection check result: $hasCollected');
 
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DailyQuestionLetterSheet(
+        await showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => DailyQuestionLetterSheet(
         question: question,
         onCollectSeed: hasCollected
             ? null
@@ -1280,6 +1401,8 @@ class _GameScreenState extends State<GameScreen> {
                 );
               },
       ),
+    );
+      },
     );
   }
 
@@ -1432,16 +1555,22 @@ class _GameScreenState extends State<GameScreen> {
                   // Shop button
                   IconButton(
                     onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => ShopScreen(
-                            inventoryManager: inventoryManager,
-                            onItemPurchased: () {
-                              // Refresh inventory display
-                              setState(() {});
-                            },
-                          ),
-                        ),
+                      // Use Superwall feature gating for shop access
+                      SuperwallService.registerPlacement(
+                        'shop_access',
+                        feature: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => ShopScreen(
+                                inventoryManager: inventoryManager,
+                                onItemPurchased: () {
+                                  // Refresh inventory display
+                                  setState(() {});
+                                },
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
                     icon: const Text(

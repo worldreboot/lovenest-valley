@@ -1,62 +1,57 @@
 import 'package:flutter/material.dart';
-import 'package:purchases_flutter/purchases_flutter.dart';
-import 'package:lovenest_valley/services/revenuecat_service.dart';
+import 'package:lovenest_valley/services/superwall_service.dart';
 
-class PaywallScreen extends StatefulWidget {
+class SuperwallPaywallScreen extends StatefulWidget {
   final VoidCallback? onEntitled;
   final VoidCallback? onClose;
-  const PaywallScreen({super.key, this.onEntitled, this.onClose});
+  final String placement;
+  
+  const SuperwallPaywallScreen({
+    super.key, 
+    this.onEntitled, 
+    this.onClose,
+    this.placement = 'premium',
+  });
 
   @override
-  State<PaywallScreen> createState() => _PaywallScreenState();
+  State<SuperwallPaywallScreen> createState() => _SuperwallPaywallScreenState();
 }
 
-class _PaywallScreenState extends State<PaywallScreen> {
-  Offerings? _offerings;
+class _SuperwallPaywallScreenState extends State<SuperwallPaywallScreen> {
   bool _loading = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _presentPaywall();
   }
 
-  Future<void> _load() async {
+  Future<void> _presentPaywall() async {
     setState(() {
       _loading = true;
       _error = null;
     });
+    
     try {
-      await RevenueCatService.initialize();
-      final offerings = await RevenueCatService.getOfferings();
-      setState(() {
-        _offerings = offerings;
-        _loading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = 'Unable to load plans. Please try again later.';
-        _loading = false;
-      });
-    }
-  }
-
-  Future<void> _purchase(Package package) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    final info = await RevenueCatService.purchase(package);
-    setState(() {
-      _loading = false;
-    });
-    if (info != null) {
-      final entitled = await RevenueCatService.isEntitled();
+      await SuperwallService.initialize();
+      await SuperwallService.presentPaywall(widget.placement);
+      
+      // Check if user became entitled after paywall presentation
+      final entitled = await SuperwallService.isEntitled();
       if (entitled) {
         widget.onEntitled?.call();
         if (mounted) Navigator.of(context).pop();
       }
+      
+      setState(() {
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Unable to load subscription options. Please try again later.';
+        _loading = false;
+      });
     }
   }
 
@@ -65,14 +60,29 @@ class _PaywallScreenState extends State<PaywallScreen> {
       _loading = true;
       _error = null;
     });
-    await RevenueCatService.restore();
-    setState(() {
-      _loading = false;
-    });
-    final entitled = await RevenueCatService.isEntitled();
-    if (entitled) {
-      widget.onEntitled?.call();
-      if (mounted) Navigator.of(context).pop();
+    
+    try {
+      await SuperwallService.restorePurchases();
+      
+      // Check if user became entitled after restore
+      final entitled = await SuperwallService.isEntitled();
+      if (entitled) {
+        widget.onEntitled?.call();
+        if (mounted) Navigator.of(context).pop();
+      } else {
+        setState(() {
+          _error = 'No previous purchases found to restore.';
+        });
+      }
+      
+      setState(() {
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Unable to restore purchases. Please try again later.';
+        _loading = false;
+      });
     }
   }
 
@@ -144,21 +154,19 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
                     const SizedBox(height: 8),
 
-                    // Plans
-                    Expanded(
-                      child: _offerings?.current == null
-                          ? const Center(child: Text('No plans available right now.'))
-                          : ListView(
-                              padding: const EdgeInsets.all(16),
-                              children: _offerings!.current!.availablePackages
-                                  .map((pkg) => _PackageTile(
-                                        package: pkg,
-                                        onTap: () => _purchase(pkg),
-                                      ))
-                                  .toList(),
-                            ),
-                    ),
+                    // Retry button if there's an error
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: ElevatedButton(
+                          onPressed: _presentPaywall,
+                          child: const Text('Try Again'),
+                        ),
+                      ),
 
+                    const Spacer(),
+
+                    // Restore purchases button
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                       child: Row(
@@ -185,21 +193,30 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
 class _Bullet extends StatelessWidget {
   final String text;
+  
   const _Bullet({required this.text});
+
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.check_circle, color: Color(0xFF27AE60)),
-          const SizedBox(width: 8),
+          const Text(
+            '• ',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF8B4513),
+            ),
+          ),
           Expanded(
             child: Text(
               text,
               style: const TextStyle(
-                color: Color(0xFF4A4A4A),
                 fontSize: 16,
+                color: Color(0xFF8B4513),
               ),
             ),
           ),
@@ -208,35 +225,3 @@ class _Bullet extends StatelessWidget {
     );
   }
 }
-
-class _PackageTile extends StatelessWidget {
-  final Package package;
-  final VoidCallback onTap;
-  const _PackageTile({required this.package, required this.onTap});
-  @override
-  Widget build(BuildContext context) {
-    final product = package.storeProduct;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          )
-        ],
-      ),
-      child: ListTile(
-        title: Text(product.title),
-        subtitle: Text(product.description),
-        trailing: Text(product.priceString, style: const TextStyle(fontWeight: FontWeight.bold)),
-        onTap: onTap,
-      ),
-    );
-  }
-}
-
-

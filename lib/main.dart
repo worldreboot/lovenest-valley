@@ -13,7 +13,8 @@ import 'package:lovenest_valley/screens/offline_screen.dart';
 import 'package:lovenest_valley/screens/debug_auth_screen.dart';
 
 import 'services/push_service.dart';
-import 'services/revenuecat_service.dart';
+import 'services/superwall_service.dart';
+import 'services/deep_link_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import 'dart:ui';
@@ -58,8 +59,11 @@ void main() async {
   // Initialize push notifications and register token
   await PushService.initializeAndRegister();
 
-  // Initialize RevenueCat (no user yet; will set user after auth)
-  await RevenueCatService.initialize();
+  // Initialize Superwall with platform-specific API key (no user yet; will set user after auth)
+  await SuperwallService.initialize();
+
+  // Initialize deep link handling
+  await DeepLinkService.initialize();
   
   runApp(const MyApp());
 }

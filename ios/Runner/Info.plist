@@ -55,6 +55,14 @@
 				<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>lovenest.custom.scheme</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>lovenest</string>
+			</array>
+		</dict>
 	</array>
 
 	<!-- Privacy Permissions -->

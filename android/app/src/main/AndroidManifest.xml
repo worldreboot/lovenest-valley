@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="Lovenest Valley"
@@ -25,7 +26,29 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            
+            <!-- Custom URL Scheme for Lovenest -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="lovenest" />
+            </intent-filter>
         </activity>
+        
+        <!-- Superwall Paywall Activity -->
+        <activity
+            android:name="com.superwall.sdk.paywall.view.SuperwallPaywallActivity"
+            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            tools:replace="android:theme">
+        </activity>
+
+        <!-- Optional Superwall Debug Activities -->
+        <activity android:name="com.superwall.sdk.debug.DebugViewActivity" />
+        <activity android:name="com.superwall.sdk.debug.localizations.SWLocalizationActivity" />
+        <activity android:name="com.superwall.sdk.debug.SWConsoleActivity" />
+        
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

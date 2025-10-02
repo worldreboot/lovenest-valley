@@ -1117,6 +1117,42 @@ class SimpleEnhancedFarmGame extends GameWithGrid
     }
   }
 
+  /// Clear all tile overrides (used for tutorial cleanup)
+  void clearTileOverrides() {
+    _tileRenderer.clearOverrides();
+  }
+
+  /// Public method to till a tile using the terrain system
+  Future<void> tillTile(int gridX, int gridY, {bool skipBackend = false}) async {
+    debugPrint('[SimpleEnhancedFarmGame] 🚜 Public tillTile called at ($gridX, $gridY), skipBackend: $skipBackend');
+
+    // Save to backend first (unless skipped for tutorial)
+    if (!skipBackend) {
+      try {
+        final farmTileService = FarmTileService();
+        await farmTileService.tillTile(farmId, gridX, gridY);
+        debugPrint('[SimpleEnhancedFarmGame] ✅ Tile saved to backend');
+      } catch (e) {
+        debugPrint('[SimpleEnhancedFarmGame] ❌ Error saving tile to backend: $e');
+        // Continue with local update even if backend fails
+      }
+    } else {
+      debugPrint('[SimpleEnhancedFarmGame] ⏭️ Skipping backend save (tutorial mode)');
+    }
+
+    // Delegate to the active terrain system
+    await _terrainSystem.till(gridX, gridY, persist: !skipBackend);
+
+    // If we're in tutorial mode (skip backend) and using the vertex system, cancel any pending persistence
+    if (skipBackend && _useVertexTerrainSystem) {
+      if (_vertexSaveDebounceTimer?.isActive ?? false) {
+        _vertexSaveDebounceTimer!.cancel();
+      } else {
+        _vertexSaveDebounceTimer?.cancel();
+      }
+    }
+  }
+
   /// Check if a tile has a specific property
   bool hasTileProperty(int x, int y, String propertyName) {
     final properties = getTilePropertiesAt(x, y);
