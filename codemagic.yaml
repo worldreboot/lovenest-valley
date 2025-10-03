@@ -4,8 +4,8 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
-      groups:
-        - ios_signing # Add your iOS code signing group here
+      # groups:
+        # - ios_signing # Uncomment when you have certificates configured
       vars:
         # App configuration
         APP_ID: "com.liglius.lovenest"
@@ -39,18 +39,18 @@ workflows:
           include: true
       cancel_previous_builds: false
     scripts:
-      - name: Set up keychain to be used for codesigning
-        script: |
-          keychain initialize
-      - name: Set up signing certificate
-        script: |
-          # Add the certificate to keychain
-          app-store connect fetch-signing-files $APP_ID --type IOS_APP_STORE --create
-          keychain add-certificates
-      - name: Set up provisioning profile
-        script: |
-          # Add the provisioning profile
-          app-store connect fetch-signing-files $APP_ID --type IOS_APP_STORE --create
+      # - name: Set up keychain to be used for codesigning
+      #   script: |
+      #     keychain initialize
+      # - name: Set up signing certificate
+      #   script: |
+      #     # Add the certificate to keychain
+      #     app-store connect fetch-signing-files $APP_ID --type IOS_APP_STORE --create
+      #     keychain add-certificates
+      # - name: Set up provisioning profile
+      #   script: |
+      #     # Add the provisioning profile
+      #     app-store connect fetch-signing-files $APP_ID --type IOS_APP_STORE --create
       - name: Get Flutter packages
         script: |
           flutter packages pub get
@@ -63,54 +63,54 @@ workflows:
       - name: Flutter test
         script: |
           flutter test
-      - name: Build iOS app for release
+      - name: Build iOS app for release (unsigned)
         script: |
-          flutter build ipa \
+          flutter build ios \
             --release \
-            --export-method app-store \
+            --no-codesign \
             --build-name=$BUILD_NAME \
             --build-number=$BUILD_NUMBER \
             --no-tree-shake-icons
     artifacts:
-      - build/ios/ipa/*.ipa
+      - build/ios/Release-iphoneos/*.app
       - /tmp/xcodebuild_logs/*.log
       - flutter_drive.log
-    publishing:
-      app_store_connect:
-        # Apple App Store Connect API key information
-        # You'll need to add these as environment variables in Codemagic
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-        
-        # Submit to TestFlight
-        submit_to_testflight: true
-        beta_groups:
-          - "Internal Testing"
-          - "External Testing"
-        
-        # Optional: Submit to App Store for review
-        submit_to_app_store: false
-        
-        # Release notes
-        release_notes:
-          - language: en-US
-            text: |
-              🏡 Lovenest Valley - Build $BUILD_NAME ($BUILD_NUMBER)
-              
-              ✨ New Features:
-              • Enhanced couple bonding experiences
-              • Improved farm management system
-              • New decorative items and customization options
-              
-              🐛 Bug Fixes:
-              • Fixed sync issues between partners
-              • Improved app stability and performance
-              
-              🎮 Gameplay Improvements:
-              • Smoother animations and transitions
-              • Better resource management
-              • Enhanced user interface
+    # publishing:
+      # app_store_connect:
+      #   # Apple App Store Connect API key information
+      #   # You'll need to add these as environment variables in Codemagic
+      #   api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+      #   key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+      #   issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+      #   
+      #   # Submit to TestFlight
+      #   submit_to_testflight: true
+      #   beta_groups:
+      #     - "Internal Testing"
+      #     - "External Testing"
+      #   
+      #   # Optional: Submit to App Store for review
+      #   submit_to_app_store: false
+      #   
+      #   # Release notes
+      #   release_notes:
+      #     - language: en-US
+      #       text: |
+      #         🏡 Lovenest Valley - Build $BUILD_NAME ($BUILD_NUMBER)
+      #         
+      #         ✨ New Features:
+      #         • Enhanced couple bonding experiences
+      #         • Improved farm management system
+      #         • New decorative items and customization options
+      #         
+      #         🐛 Bug Fixes:
+      #         • Fixed sync issues between partners
+      #         • Improved app stability and performance
+      #         
+      #         🎮 Gameplay Improvements:
+      #         • Smoother animations and transitions
+      #         • Better resource management
+      #         • Enhanced user interface
       email:
         recipients:
           - naween803@gmail.com # Replace with your actual email
