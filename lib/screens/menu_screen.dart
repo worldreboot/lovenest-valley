@@ -13,14 +13,14 @@ import 'package:lovenest_valley/services/auth_service.dart';
 import 'package:lovenest_valley/config/supabase_config.dart';
 // Removed unused import
 
-/// Custom animated text widget with wave effect
-class WaveAnimatedText extends StatefulWidget {
+/// Custom animated text widget with growing and shrinking effect
+class GrowShrinkAnimatedText extends StatefulWidget {
   final String text;
   final TextStyle style;
   final TextAlign textAlign;
   final Duration duration;
 
-  WaveAnimatedText({
+  GrowShrinkAnimatedText({
     super.key,
     required this.text,
     required this.style,
@@ -29,13 +29,13 @@ class WaveAnimatedText extends StatefulWidget {
   });
 
   @override
-  State<WaveAnimatedText> createState() => _WaveAnimatedTextState();
+  State<GrowShrinkAnimatedText> createState() => _GrowShrinkAnimatedTextState();
 }
 
-class _WaveAnimatedTextState extends State<WaveAnimatedText>
+class _GrowShrinkAnimatedTextState extends State<GrowShrinkAnimatedText>
     with TickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _animation;
+  late Animation<double> _scaleAnimation;
 
   @override
   void initState() {
@@ -44,14 +44,26 @@ class _WaveAnimatedTextState extends State<WaveAnimatedText>
       duration: widget.duration,
       vsync: this,
     );
-    _animation = Tween<double>(
-      begin: 0.0,
-      end: 2 * pi,
+    
+    // Create a scale animation that goes from 0.8 to 1.2 and back to 0.8
+    _scaleAnimation = Tween<double>(
+      begin: 0.8,
+      end: 1.2,
     ).animate(CurvedAnimation(
       parent: _controller,
-      curve: Curves.linear,
+      curve: Curves.easeInOut,
     ));
-    _controller.repeat();
+    
+    // Reverse the animation to create a growing then shrinking effect
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _controller.reverse();
+      } else if (status == AnimationStatus.dismissed) {
+        _controller.forward();
+      }
+    });
+    
+    _controller.forward();
   }
 
   @override
@@ -63,25 +75,15 @@ class _WaveAnimatedTextState extends State<WaveAnimatedText>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _animation,
+      animation: _scaleAnimation,
       builder: (context, child) {
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: widget.text.split('').asMap().entries.map((entry) {
-            final index = entry.key;
-            final char = entry.value;
-            
-            // Calculate wave offset for each character
-            final waveOffset = sin(_animation.value + (index * 0.5)) * 8.0;
-            
-            return Transform.translate(
-              offset: Offset(0, waveOffset),
-              child: Text(
-                char,
-                style: widget.style,
-              ),
-            );
-          }).toList(),
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Text(
+            widget.text,
+            style: widget.style,
+            textAlign: widget.textAlign,
+          ),
         );
       },
     );
@@ -702,8 +704,8 @@ class _MenuScreenState extends State<MenuScreen> {
               ),
               const SizedBox(height: 20),
               
-              // Subtitle with wave animation
-              WaveAnimatedText(
+              // Subtitle with growing/shrinking animation
+              GrowShrinkAnimatedText(
                 text: 'Grow Your Love Together',
                 style: const TextStyle(
                   fontFamily: 'GUMDROP',
@@ -721,7 +723,7 @@ class _MenuScreenState extends State<MenuScreen> {
                     Shadow(offset: Offset(0, 1), color: Colors.black),
                   ],
                 ),
-                duration: const Duration(seconds: 3),
+                duration: const Duration(seconds: 5),
               ),
               const SizedBox(height: 60),
               

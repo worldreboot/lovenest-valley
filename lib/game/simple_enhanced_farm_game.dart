@@ -1122,6 +1122,11 @@ class SimpleEnhancedFarmGame extends GameWithGrid
     _tileRenderer.clearOverrides();
   }
 
+  /// Clear all tile overrides and refresh visual state (used for tutorial cleanup)
+  Future<void> clearTileOverridesAndRefresh() async {
+    await _tileRenderer.clearOverridesAndRefresh();
+  }
+
   /// Public method to till a tile using the terrain system
   Future<void> tillTile(int gridX, int gridY, {bool skipBackend = false}) async {
     debugPrint('[SimpleEnhancedFarmGame] 🚜 Public tillTile called at ($gridX, $gridY), skipBackend: $skipBackend');

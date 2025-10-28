@@ -504,6 +504,15 @@ class TileRenderer {
     _gidOverrides.clear();
   }
 
+  // Clear all overrides and refresh visual state
+  Future<void> clearOverridesAndRefresh() async {
+    debugPrint('[TileRenderer] 🧹 Clearing all overrides and refreshing visual state');
+    _gidOverrides.clear();
+    // Force refresh all visible tiles to show original TMX data
+    await updateVisibleTiles(force: true);
+    debugPrint('[TileRenderer] ✅ Overrides cleared and visual state refreshed');
+  }
+
   // Effective ground gid considering overrides
   int _effectiveGroundGidAt(int x, int y) {
     final override = _gidOverrides['$x,$y'];

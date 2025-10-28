@@ -47,10 +47,10 @@ class GameTutorialController {
     final originalSlots = List<InventoryItem?>.from(inventoryManager.slots);
     final originalSelection = inventoryManager.selectedSlotIndex;
     
-    // Store original tile state for cleanup
-    int originalTileGid = 0;
-    final plantingX = 32;
-    final plantingY = 8;
+      // Store original tile state for cleanup
+      int originalTileGid = 0;
+      final plantingX = 32;
+      final plantingY = 8;
 
     final question = Question(
       id: 'tutorial-daily-question',
@@ -234,9 +234,9 @@ class GameTutorialController {
 
       game.removePlantedSeed(plantingX, plantingY);
       
-      // Clear any tile overrides from the tutorial tilling
-      debugPrint('[Tutorial] 🧹 Clearing tile overrides from tutorial tilling');
-      game.clearTileOverrides();
+      // Clear any tile overrides from the tutorial tilling and refresh visual state
+      debugPrint('[Tutorial] 🧹 Clearing tile overrides from tutorial tilling and refreshing visual state');
+      await game.clearTileOverridesAndRefresh();
       
       // Restore the original tile state
       if (originalTileGid > 0) {
