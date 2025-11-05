@@ -656,7 +656,9 @@ class _MenuScreenState extends State<MenuScreen> {
       // Check authentication status
       _checkAuth();
 
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Log error to debug service
+      DebugLogService().addError('Apple sign-in failed in UI', e, stackTrace);
 
       // Show error to user
       if (mounted) {

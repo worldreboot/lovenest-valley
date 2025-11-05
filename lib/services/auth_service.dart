@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:lovenest_valley/services/debug_log_service.dart';
@@ -265,15 +264,11 @@ Original Message: ${message ?? "No message provided"}''';
       debugPrint('[AuthService] 🍎 Starting Apple sign-in process...');
       DebugLogService().addLog('🍎 Starting Apple sign-in process...');
 
-      // Generate a raw nonce for security (prevents replay attacks)
+      // Generate a raw nonce for Supabase (we'll still use this for Supabase verification if needed)
       final rawNonce = Supabase.instance.client.auth.generateRawNonce();
-      // Hash the nonce for Apple (must be SHA256)
-      final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
 
-      debugPrint('[AuthService] 🔐 Generated nonce for Apple sign-in');
-      debugPrint('[AuthService] 🔐 Raw nonce length: ${rawNonce.length}');
-      debugPrint('[AuthService] 🔐 Hashed nonce (first 20 chars): ${hashedNonce.substring(0, 20)}...');
-      DebugLogService().addLog('🔐 Generated nonce (raw length: ${rawNonce.length})');
+      debugPrint('[AuthService] 🔐 Generated nonce for Supabase (raw length: ${rawNonce.length})');
+      DebugLogService().addLog('🔐 Generated nonce for Supabase (raw length: ${rawNonce.length})');
 
       // 0) Confirm API is available on this device
       final isAvail = await SignInWithApple.isAvailable();
@@ -287,19 +282,19 @@ Original Message: ${message ?? "No message provided"}''';
         return;
       }
 
-      // Request Apple ID credentials with hashed nonce
+      // Request Apple ID credentials WITHOUT nonce (testing if nonce is causing issues)
       // Wrap in try-catch to get detailed error information
       final appleCredential;
       try {
-        debugPrint('[AuthService] 🪟 Presenting Apple sheet...');
-        DebugLogService().addLog('🪟 Presenting Apple sheet...');
+        debugPrint('[AuthService] 🪟 Presenting Apple sheet (without nonce)...');
+        DebugLogService().addLog('🪟 Presenting Apple sheet (without nonce)...');
         
         appleCredential = await SignInWithApple.getAppleIDCredential(
           scopes: [
             AppleIDAuthorizationScopes.email,
             AppleIDAuthorizationScopes.fullName,
           ],
-          nonce: hashedNonce,
+          // nonce: hashedNonce, // Temporarily removed to test if nonce is causing issues
         ).timeout(
           const Duration(seconds: 20), // 1) detect hangs
         );
@@ -386,15 +381,15 @@ Check the full stack trace for more details.''';
       _debugAppleToken(identityToken);
 
       // ✅ Now safe to sign in to Supabase
-      // CRITICAL: Send RAW nonce to Supabase, NOT the hashed one
+      // Note: Not passing nonce to Supabase since we didn't pass it to Apple
       debugPrint('[AuthService] 🔐 About to call Supabase signInWithIdToken with aud: $aud');
       DebugLogService().addLog('🔐 About to call Supabase signInWithIdToken with aud: $aud');
-      debugPrint('[AuthService] 🔐 Sending to Supabase: raw nonce (length: ${rawNonce.length})');
-      DebugLogService().addLog('🔐 Sending to Supabase: raw nonce (length: ${rawNonce.length})');
+      debugPrint('[AuthService] 🔐 Calling Supabase WITHOUT nonce (testing without nonce)');
+      DebugLogService().addLog('🔐 Calling Supabase WITHOUT nonce (testing without nonce)');
       await Supabase.instance.client.auth.signInWithIdToken(
         provider: OAuthProvider.apple,
         idToken: identityToken,
-        nonce: rawNonce, // RAW nonce - Supabase will hash it to verify
+        // nonce: rawNonce, // Temporarily removed - testing without nonce
       );
 
       debugPrint('[AuthService] ✅ Successfully signed in to Supabase with Apple');
