@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'package:lovenest_valley/services/debug_log_service.dart';
 
 class AuthService {
@@ -185,13 +186,35 @@ class AuthService {
       debugPrint('[AuthService] 🔐 Hashed nonce (first 20 chars): ${hashedNonce.substring(0, 20)}...');
       DebugLogService().addLog('🔐 Generated nonce (raw length: ${rawNonce.length})');
 
+      // 0) Confirm API is available on this device
+      final isAvail = await SignInWithApple.isAvailable();
+      debugPrint('[AuthService] 🍏 isAvailable: $isAvail');
+      DebugLogService().addLog('🍏 Apple Sign-In available: $isAvail');
+      
+      if (!isAvail) {
+        final error = 'Apple Sign-In not available on this device';
+        debugPrint('[AuthService] ❌ $error');
+        DebugLogService().addLog('❌ $error', level: LogLevel.error);
+        return;
+      }
+
       // Request Apple ID credentials with hashed nonce
+      debugPrint('[AuthService] 🪟 Presenting Apple sheet...');
+      DebugLogService().addLog('🪟 Presenting Apple sheet...');
+      
       final appleCredential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
           AppleIDAuthorizationScopes.fullName,
         ],
         nonce: hashedNonce,
+      ).timeout(
+        const Duration(seconds: 20),
+        onTimeout: () {
+          debugPrint('[AuthService] ⏱️ Apple sheet timed out (no response in 20s)');
+          DebugLogService().addLog('⏱️ Apple sheet timed out', level: LogLevel.warning);
+          throw TimeoutException('Apple Sign-In timed out after 20 seconds');
+        },
       );
 
       debugPrint('[AuthService] ✅ Apple credentials obtained');
@@ -232,6 +255,8 @@ class AuthService {
 
       // ✅ Now safe to sign in to Supabase
       // CRITICAL: Send RAW nonce to Supabase, NOT the hashed one
+      debugPrint('[AuthService] 🔐 About to call Supabase signInWithIdToken with aud: $aud');
+      DebugLogService().addLog('🔐 About to call Supabase signInWithIdToken with aud: $aud');
       debugPrint('[AuthService] 🔐 Sending to Supabase: raw nonce (length: ${rawNonce.length})');
       DebugLogService().addLog('🔐 Sending to Supabase: raw nonce (length: ${rawNonce.length})');
       await Supabase.instance.client.auth.signInWithIdToken(
@@ -279,11 +304,20 @@ class AuthService {
         debugPrint('[AuthService] ⚠️ Session verification failed - no current user');
       }
 
+    } on TimeoutException {
+      debugPrint('[AuthService] ⏱️ Apple sheet timed out (no response in 20s)');
+      DebugLogService().addLog('⏱️ Apple sheet timed out', level: LogLevel.warning);
+      return;
+    } on SignInWithAppleAuthorizationException catch (e) {
+      // 2) log the real code
+      debugPrint('[AuthService] ❌ SIWA exception: code=${e.code} message=${e.message}');
+      DebugLogService().addError('SIWA exception: ${e.code} - ${e.message}');
+      return;
     } catch (e, stackTrace) {
-      final errorMsg = '[AuthService] ❌ Apple sign-in failed: $e';
-      debugPrint(errorMsg);
-      DebugLogService().addError('Apple sign-in failed', e, stackTrace);
-      rethrow; // Re-throw to let the calling code handle the error
+      debugPrint('[AuthService] ❌ Generic error: $e');
+      debugPrint('[AuthService] ❌ Error type: ${e.runtimeType}');
+      DebugLogService().addError('Generic SIWA error', e, stackTrace);
+      return;
     }
   }
 
