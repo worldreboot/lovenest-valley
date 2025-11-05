@@ -124,6 +124,95 @@ class AuthService {
     }
   }
 
+  /// Provides detailed explanation for Apple Sign-In error codes
+  /// Handles both numeric codes (1000-1005) and enum names (canceled, failed, etc.)
+  static String _getAppleSignInErrorExplanation(String? code, String? message) {
+    if (code == null) {
+      return 'Unknown error code. Message: ${message ?? "No message provided"}';
+    }
+
+    String explanation;
+    String possibleCauses;
+    String codeDisplay = code;
+
+    // Check if it's a numeric code first
+    final codeInt = int.tryParse(code);
+    if (codeInt != null) {
+      codeDisplay = '$codeInt ($code)';
+      switch (codeInt) {
+        case 1000: // ASAuthorizationErrorUnknown
+          explanation = 'Unknown error occurred during Apple Sign-In';
+          possibleCauses = 'Possible causes: Network issues, device configuration problems, or unexpected system error. Check device logs and network connectivity.';
+          break;
+        case 1001: // ASAuthorizationErrorCanceled
+          explanation = 'User cancelled the Apple Sign-In authorization';
+          possibleCauses = 'User tapped "Cancel" or dismissed the authorization sheet. This is normal user behavior and not an error.';
+          break;
+        case 1002: // ASAuthorizationErrorFailed
+          explanation = 'Apple Sign-In authorization request failed';
+          possibleCauses = 'Possible causes: Invalid request configuration, missing entitlements, or Apple ID service unavailable. Check entitlements and provisioning profile.';
+          break;
+        case 1003: // ASAuthorizationErrorInvalidResponse
+          explanation = 'Invalid response received from Apple Sign-In';
+          possibleCauses = 'Possible causes: Corrupted response data, network interruption during authorization, or Apple service error. Check network connection and try again.';
+          break;
+        case 1004: // ASAuthorizationErrorNotHandled
+          explanation = 'Apple Sign-In request was not handled';
+          possibleCauses = 'Possible causes: Request not properly configured, missing delegate handling, or platform-specific issue. Check implementation and platform support.';
+          break;
+        case 1005: // ASAuthorizationErrorNotInteractive (if exists)
+          explanation = 'Apple Sign-In authorization cannot be displayed interactively';
+          possibleCauses = 'Possible causes: App is in background, authorization sheet already displayed, or device is locked. Ensure app is in foreground and user can interact.';
+          break;
+        default:
+          explanation = 'Unknown error code: $codeInt';
+          possibleCauses = 'This error code is not recognized. Check Apple documentation for latest error codes. Message: ${message ?? "No message provided"}';
+      }
+    } else {
+      // Handle enum names (canceled, failed, etc.)
+      final codeLower = code.toLowerCase();
+      switch (codeLower) {
+        case 'canceled':
+        case 'cancelled':
+          explanation = 'User cancelled the Apple Sign-In authorization';
+          possibleCauses = 'User tapped "Cancel" or dismissed the authorization sheet. This is normal user behavior and not an error.';
+          break;
+        case 'failed':
+          explanation = 'Apple Sign-In authorization request failed';
+          possibleCauses = 'Possible causes: Invalid request configuration, missing entitlements, or Apple ID service unavailable. Check entitlements and provisioning profile.';
+          break;
+        case 'invalidresponse':
+        case 'invalid_response':
+          explanation = 'Invalid response received from Apple Sign-In';
+          possibleCauses = 'Possible causes: Corrupted response data, network interruption during authorization, or Apple service error. Check network connection and try again.';
+          break;
+        case 'nothandled':
+        case 'not_handled':
+          explanation = 'Apple Sign-In request was not handled';
+          possibleCauses = 'Possible causes: Request not properly configured, missing delegate handling, or platform-specific issue. Check implementation and platform support.';
+          break;
+        case 'notinteractive':
+        case 'not_interactive':
+          explanation = 'Apple Sign-In authorization cannot be displayed interactively';
+          possibleCauses = 'Possible causes: App is in background, authorization sheet already displayed, or device is locked. Ensure app is in foreground and user can interact.';
+          break;
+        case 'unknown':
+          explanation = 'Unknown error occurred during Apple Sign-In';
+          possibleCauses = 'Possible causes: Network issues, device configuration problems, or unexpected system error. Check device logs and network connectivity.';
+          break;
+        default:
+          explanation = 'Unknown error code: $code';
+          possibleCauses = 'This error code is not recognized. Check Apple documentation for latest error codes. Message: ${message ?? "No message provided"}';
+      }
+    }
+
+    return '''
+Error Code: $codeDisplay
+Explanation: $explanation
+Possible Causes: $possibleCauses
+Original Message: ${message ?? "No message provided"}''';
+  }
+
   /// Debug helper to decode and print Apple ID token information
   static void _debugAppleToken(String? jwt) {
     if (jwt == null) {
@@ -199,26 +288,69 @@ class AuthService {
       }
 
       // Request Apple ID credentials with hashed nonce
-      debugPrint('[AuthService] 🪟 Presenting Apple sheet...');
-      DebugLogService().addLog('🪟 Presenting Apple sheet...');
-      
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-        nonce: hashedNonce,
-      ).timeout(
-        const Duration(seconds: 20),
-        onTimeout: () {
-          debugPrint('[AuthService] ⏱️ Apple sheet timed out (no response in 20s)');
-          DebugLogService().addLog('⏱️ Apple sheet timed out', level: LogLevel.warning);
-          throw TimeoutException('Apple Sign-In timed out after 20 seconds');
-        },
-      );
+      // Wrap in try-catch to get detailed error information
+      final appleCredential;
+      try {
+        debugPrint('[AuthService] 🪟 Presenting Apple sheet...');
+        DebugLogService().addLog('🪟 Presenting Apple sheet...');
+        
+        appleCredential = await SignInWithApple.getAppleIDCredential(
+          scopes: [
+            AppleIDAuthorizationScopes.email,
+            AppleIDAuthorizationScopes.fullName,
+          ],
+          nonce: hashedNonce,
+        ).timeout(
+          const Duration(seconds: 20), // 1) detect hangs
+        );
 
-      debugPrint('[AuthService] ✅ Apple credentials obtained');
-      DebugLogService().addLog('✅ Apple credentials obtained');
+        debugPrint('[AuthService] ✅ Apple credentials obtained');
+        DebugLogService().addLog('✅ Apple credentials obtained');
+      } on TimeoutException {
+        // 1) detect hangs
+        debugPrint('[AuthService] ⏱️ Apple sheet timed out (no response in 20s)');
+        DebugLogService().addLog('⏱️ Apple sheet timed out', level: LogLevel.warning);
+        return;
+      } on SignInWithAppleAuthorizationException catch (e) {
+        // 2) log the real code
+        final detailedExplanation = _getAppleSignInErrorExplanation(e.code.toString().replaceAll('AuthorizationErrorCode.', ''), e.message);
+        debugPrint('[AuthService] ❌ SIWA exception: code=${e.code} message=${e.message}');
+        debugPrint('[AuthService] ❌ Detailed explanation:\n$detailedExplanation');
+        DebugLogService().addError('SIWA exception: ${e.code} - ${e.message}');
+        DebugLogService().addLog(detailedExplanation, level: LogLevel.error);
+        
+        // Additional context based on error code
+        final errorCodeStr = e.code.toString().replaceAll('AuthorizationErrorCode.', '');
+        if (errorCodeStr == 'canceled' || errorCodeStr.contains('1001')) {
+          debugPrint('[AuthService] ℹ️ User cancelled - this is expected behavior, not an error');
+          DebugLogService().addLog('ℹ️ User cancelled - this is expected behavior, not an error');
+        } else if (errorCodeStr == 'failed' || errorCodeStr.contains('1002')) {
+          debugPrint('[AuthService] ⚠️ Check: iOS version >= 13, entitlements configured, provisioning profile includes Sign in with Apple');
+          DebugLogService().addLog('⚠️ Check: iOS version >= 13, entitlements configured, provisioning profile includes Sign in with Apple', level: LogLevel.warning);
+        }
+        
+        return;
+      } catch (e, st) {
+        // Generic error handler
+        final errorDetails = '''
+Generic error: $e
+Error type: ${e.runtimeType}
+Stack trace: ${st.toString().split('\n').take(5).join('\n')}
+
+Possible causes:
+- Platform-specific issue (check if running on iOS/macOS)
+- Missing dependencies or configuration
+- Unexpected exception in Sign in with Apple package
+- System-level error
+
+Check the full stack trace for more details.''';
+        debugPrint('[AuthService] ❌ Generic error: $e');
+        debugPrint('[AuthService] ❌ Error type: ${e.runtimeType}');
+        debugPrint('[AuthService] ❌ Details:\n$errorDetails');
+        DebugLogService().addError('Generic SIWA error', e, st);
+        DebugLogService().addLog(errorDetails, level: LogLevel.error);
+        return;
+      }
 
       // Extract the identity token
       final identityToken = appleCredential.identityToken;
@@ -305,18 +437,56 @@ class AuthService {
       }
 
     } on TimeoutException {
+      final timeoutMsg = '⏱️ Apple sheet timed out (no response in 20s)\n'
+          'Possible causes:\n'
+          '- User left the app during authorization\n'
+          '- Apple Sign-In dialog is stuck or not responding\n'
+          '- Network connectivity issues\n'
+          '- Device is locked or in background\n'
+          'Try ensuring the app stays in foreground and user responds promptly.';
       debugPrint('[AuthService] ⏱️ Apple sheet timed out (no response in 20s)');
+      debugPrint('[AuthService] $timeoutMsg');
       DebugLogService().addLog('⏱️ Apple sheet timed out', level: LogLevel.warning);
+      DebugLogService().addLog(timeoutMsg, level: LogLevel.warning);
       return;
     } on SignInWithAppleAuthorizationException catch (e) {
-      // 2) log the real code
-      debugPrint('[AuthService] ❌ SIWA exception: code=${e.code} message=${e.message}');
-      DebugLogService().addError('SIWA exception: ${e.code} - ${e.message}');
+      // Log the real code with detailed explanation
+      // Convert AuthorizationErrorCode to string for processing
+      final errorCodeStr = e.code.toString().replaceAll('AuthorizationErrorCode.', '');
+      final detailedExplanation = _getAppleSignInErrorExplanation(errorCodeStr, e.message);
+      debugPrint('[AuthService] ❌ SIWA exception: code=$errorCodeStr (${e.code}) message=${e.message}');
+      debugPrint('[AuthService] ❌ Detailed explanation:\n$detailedExplanation');
+      DebugLogService().addError('SIWA exception: $errorCodeStr - ${e.message}');
+      DebugLogService().addLog(detailedExplanation, level: LogLevel.error);
+      
+      // Additional context based on error code
+      if (errorCodeStr == 'canceled' || errorCodeStr.contains('1001')) {
+        debugPrint('[AuthService] ℹ️ User cancelled - this is expected behavior, not an error');
+        DebugLogService().addLog('ℹ️ User cancelled - this is expected behavior, not an error');
+      } else if (errorCodeStr == 'failed' || errorCodeStr.contains('1002')) {
+        debugPrint('[AuthService] ⚠️ Check: iOS version >= 13, entitlements configured, provisioning profile includes Sign in with Apple');
+        DebugLogService().addLog('⚠️ Check: iOS version >= 13, entitlements configured, provisioning profile includes Sign in with Apple', level: LogLevel.warning);
+      }
+      
       return;
     } catch (e, stackTrace) {
+      final errorDetails = '''
+Generic error: $e
+Error type: ${e.runtimeType}
+Stack trace: ${stackTrace.toString().split('\n').take(5).join('\n')}
+
+Possible causes:
+- Platform-specific issue (check if running on iOS/macOS)
+- Missing dependencies or configuration
+- Unexpected exception in Sign in with Apple package
+- System-level error
+
+Check the full stack trace for more details.''';
       debugPrint('[AuthService] ❌ Generic error: $e');
       debugPrint('[AuthService] ❌ Error type: ${e.runtimeType}');
+      debugPrint('[AuthService] ❌ Details:\n$errorDetails');
       DebugLogService().addError('Generic SIWA error', e, stackTrace);
+      DebugLogService().addLog(errorDetails, level: LogLevel.error);
       return;
     }
   }
