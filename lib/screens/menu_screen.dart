@@ -11,6 +11,8 @@ import 'package:flame/components.dart';
 
 import 'package:lovenest_valley/services/auth_service.dart';
 import 'package:lovenest_valley/config/supabase_config.dart';
+import 'package:lovenest_valley/widgets/debug_log_overlay.dart';
+import 'package:lovenest_valley/services/debug_log_service.dart';
 // Removed unused import
 
 /// Custom animated text widget with growing and shrinking effect
@@ -608,7 +610,9 @@ class _MenuScreenState extends State<MenuScreen> {
       // Check authentication status
       _checkAuth();
 
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Log error to debug service
+      DebugLogService().addError('Google sign-in failed in UI', e, stackTrace);
 
       // Show error to user
       if (mounted) {
@@ -674,9 +678,10 @@ class _MenuScreenState extends State<MenuScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: GrassTileBackground(
-        child: Center(
+    return DebugLogOverlay(
+      child: Scaffold(
+        body: GrassTileBackground(
+          child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -792,6 +797,7 @@ class _MenuScreenState extends State<MenuScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
