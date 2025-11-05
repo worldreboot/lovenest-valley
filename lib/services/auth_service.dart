@@ -290,10 +290,7 @@ Original Message: ${message ?? "No message provided"}''';
         DebugLogService().addLog('🪟 Presenting Apple sheet (without nonce)...');
         
         appleCredential = await SignInWithApple.getAppleIDCredential(
-          scopes: [
-            AppleIDAuthorizationScopes.email,
-            AppleIDAuthorizationScopes.fullName,
-          ],
+          scopes: [], // No scopes - testing if scopes are causing issues
           // nonce: hashedNonce, // Temporarily removed to test if nonce is causing issues
         ).timeout(
           const Duration(seconds: 20), // 1) detect hangs
