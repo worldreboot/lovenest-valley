@@ -105,6 +105,24 @@ class AuthService {
     return json.decode(utf8.decode(base64.decode(normalized)));
   }
 
+  /// Extracts the audience (aud) from an Apple ID token
+  /// Returns null if the token cannot be decoded or aud is missing
+  static String? getAudienceFromIdToken(String idToken) {
+    try {
+      final parts = idToken.split('.');
+      if (parts.length != 3) {
+        debugPrint('[AuthService] ⚠️ Invalid JWT format (expected 3 parts, got ${parts.length})');
+        return null;
+      }
+      
+      final payload = _decodeJwtPart(parts[1]);
+      return payload['aud'] as String?;
+    } catch (e) {
+      debugPrint('[AuthService] ❌ Error extracting audience from JWT: $e');
+      return null;
+    }
+  }
+
   /// Debug helper to decode and print Apple ID token information
   static void _debugAppleToken(String? jwt) {
     if (jwt == null) {
@@ -190,10 +208,29 @@ class AuthService {
       debugPrint('[AuthService] 🔑 Got identity token from Apple');
       DebugLogService().addLog('🔑 Got identity token from Apple');
       
-      // Debug: Decode and verify the token
+      // Extract and verify audience BEFORE calling Supabase
+      final aud = getAudienceFromIdToken(identityToken);
+      debugPrint('[AuthService] 🍏 Apple ID token audience: $aud');
+      DebugLogService().addLog('🍏 Apple ID token audience: $aud');
+      
+      const expectedBundleId = 'com.liglius.lovenest';
+      if (aud != expectedBundleId) {
+        final errorMsg = '⚠️ Incorrect AUD — expected $expectedBundleId, got $aud';
+        debugPrint('[AuthService] $errorMsg');
+        debugPrint('[AuthService] ⚠️ This indicates you may be using web OAuth instead of native flow');
+        debugPrint('[AuthService] ⚠️ Aborting Supabase sign-in to prevent invalid_grant error');
+        DebugLogService().addLog(errorMsg, level: LogLevel.warning);
+        DebugLogService().addLog('⚠️ Aborting Supabase sign-in to prevent invalid_grant error', level: LogLevel.warning);
+        throw Exception('Invalid audience: expected $expectedBundleId, but got $aud. This indicates the token is from web OAuth flow, not native.');
+      }
+      
+      debugPrint('[AuthService] ✅ Audience verified: $aud');
+      DebugLogService().addLog('✅ Audience verified: $aud');
+      
+      // Debug: Decode and verify the token (full details)
       _debugAppleToken(identityToken);
 
-      // Sign in to Supabase with the Apple identity token and raw nonce
+      // ✅ Now safe to sign in to Supabase
       // CRITICAL: Send RAW nonce to Supabase, NOT the hashed one
       debugPrint('[AuthService] 🔐 Sending to Supabase: raw nonce (length: ${rawNonce.length})');
       DebugLogService().addLog('🔐 Sending to Supabase: raw nonce (length: ${rawNonce.length})');
